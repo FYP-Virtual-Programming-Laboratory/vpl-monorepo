@@ -1,0 +1,67 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": [
+    "//"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "db:generate"
+      ]
+    },
+    "start": {
+      "dependsOn": [
+        "build"
+      ],
+      "with": [
+        "start:websocket",
+        "start:webrtc"
+      ],
+      "env": [
+        "DATABASE_URL",
+        "PORT"
+      ]
+    },
+    "dev": {
+      "dependsOn": [
+        "db:generate",
+        "db:seed"
+      ],
+      "with": [
+        "start:websocket",
+        "start:webrtc"
+      ],
+      "env": [
+        "DATABASE_URL",
+        "PORT"
+      ]
+    },
+    "db:deploy": {
+      "cache": false
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "DATABASE_URL"
+      ]
+    },
+    "db:seed": {
+      "cache": false,
+      "env": [
+        "DATABASE_URL"
+      ]
+    },
+    "start:websocket": {
+      "cache": false,
+      "persistent": true
+    },
+    "start:webrtc": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
