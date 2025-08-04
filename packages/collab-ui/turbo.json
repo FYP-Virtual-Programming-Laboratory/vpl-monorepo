@@ -1,0 +1,46 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": [
+    "//"
+  ],
+  "tasks": {
+    "dev": {
+      "with": [
+        "collab-server#dev",
+        "gql-codegen:watch"
+      ]
+    },
+    "build": {
+      "inputs": [
+        "$TURBO_DEFAULT$"
+      ]
+    },
+    "build:main": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        "main/**"
+      ]
+    },
+    "preview": {
+      "dependsOn": [
+        "build"
+      ]
+    },
+    "gql-codegen": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        "src/__generated__/**"
+      ]
+    },
+    "gql-codegen:watch": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

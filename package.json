@@ -9,9 +9,15 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "@microsoft/api-extractor": "^7.52.10",
     "prettier": "^3.6.2",
     "turbo": "^2.5.5",
     "typescript": "5.8.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@microsoft/api-extractor>typescript": "$typescript"
+    }
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
