@@ -40,7 +40,7 @@ await configure({
   gqlUrl: "http://your-graphql-url", // defaults to http://localhost:3000
   wsUrl: "ws://your-websocket-url", // defaults to ws://localhost:1234
   signalUrl: "ws://your-signal-url", // defaults to ws://localhost:4444
-  user: "joshuaola", // required
+  user: "user-identifier", // required
 });
 ```
 
@@ -201,6 +201,22 @@ function App() {
     />
   );
 }
+```
+
+## Development
+
+Run the server in development mode:
+
+```bash
+pnpm turbo run dev
+```
+
+## Production
+
+Build the library for use:
+
+```bash
+pnpm turbo run build
 ```
 
 ## License
