@@ -24,6 +24,8 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
+  apps/codelab-server: {}
+
   apps/codelab-ui:
     dependencies:
       '@hookform/resolvers':
