@@ -1,0 +1,15 @@
+{
+  "name": "codelab-server",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "postinstall": "./setup.sh",
+    "dev": "./dev.sh",
+    "build": "./build.sh",
+    "start": "./start.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": ""
+}

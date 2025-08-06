@@ -30,7 +30,7 @@ is_service_running() {
 }
 
 # Verify Docker is working
-if ! command_exists ; then
+if ! command_exists docker; then
     print_status "This application requires docker please ensure you have a working docker installation."
     exit 1
 fi
@@ -70,6 +70,19 @@ for service in "${SYSBOX_SERVICES[@]}"; do
 done
 
 print_status "Sysbox is installed and running."
+
+RED='\033[0;31m'
+NC='\033[0m' 
+
+# Restart docker
+if [[ $(grep -iE "Microsoft|WSL" /proc/version) ]]; then
+    print_status "${RED}Attention:${NC} Detected WSL environment. You have to restart docker manually."
+else
+    print_status "Restarting Docker service on the host machine..."
+    sudo service docker restart
+    print_status "Docker restarted."
+fi
+
 
 # step 3: Install UV and create a virtual environment
 if ! command_exists uv; then

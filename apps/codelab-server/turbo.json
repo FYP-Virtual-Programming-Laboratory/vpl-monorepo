@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": [
+    "//"
+  ],
+  "ui": "tui",
+  "tasks": {
+    "start": {
+      "dependsOn": [
+        "build"
+      ]
+    }
+  }
+}
