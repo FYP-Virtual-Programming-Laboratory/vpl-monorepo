@@ -1,0 +1,99 @@
+services:
+
+  redis:
+    image: redis:7.4
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    restart: always
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      prestart:
+        condition: service_completed_successfully
+    volumes: &common_volumes
+      - ./src:/codelab/src
+      - ./database:/codelab/database
+      - ./logs:/codelab/logs
+      - ./sandbox_filesystem:/codelab/sandbox_filesystem
+    env_file:
+      - .env
+    environment: &common_env
+      - SQLITE_DATABASE_PATH=${SQLITE_DATABASE_PATH}
+      - DOMAIN=${DOMAIN}
+      - ENVIRONMENT=${ENVIRONMENT}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
+      - SECRET_KEY=${SECRET_KEY?Variable not set}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - CELERY_DEFAULT_QUEUE=${CELERY_DEFAULT_QUEUE?Variable not set}
+      - CELERY_EXECUTION_QUEUE=${CELERY_EXECUTION_QUEUE?Variable not set}
+      - EXTERNAL_API_KEY=${EXTERNAL_API_KEY}
+
+    healthcheck:
+      test: "curl -s -f http://localhost:8000/api/v1/health-check/ | get -n 1 | grep 200"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  prestart:
+    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    build:
+      context: .
+    command: bash ./scripts/prestart.sh
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes: *common_volumes
+    environment: *common_env
+    env_file:
+      - .env
+
+  codelab-worker-sysbox:
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c", "./sysbox_celery_worker_entry_point.sh"]
+    build:
+      context: .
+    depends_on:
+      redis:
+        condition: service_healthy
+      server:
+        condition: service_started
+    runtime: sysbox-runc
+    shm_size: '2gb'
+    privileged: true
+    security_opt:
+      - seccomp:unconfined
+    volumes: *common_volumes
+    environment: *common_env
+    env_file:
+      - .env
+
+  codelab-beat:
+      entrypoint: ["/bin/bash", "-c", "./celery_beat_entry_point.sh"]
+      build:
+        context: .
+      depends_on:
+        redis:
+          condition: service_healthy
+        server:
+          condition: service_started
+      volumes: *common_volumes
+      environment: *common_env
+      env_file:
+        - .env
