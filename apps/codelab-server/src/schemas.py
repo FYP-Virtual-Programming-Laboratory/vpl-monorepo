@@ -4,6 +4,13 @@ from typing import Literal
 from pydantic import BaseModel, Field, PositiveFloat
 
 
+class WorkerTaskStatus(StrEnum):
+    started = "started"
+    in_progress = "in_progress"
+    completed = "completed"
+    cancelled = "cancelled"
+
+
 class SessionStatus(StrEnum):
     creating = "creating"
     created = "created"

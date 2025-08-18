@@ -56,10 +56,7 @@ COPY ./pyproject.toml ./uv.lock ./alembic.ini /codelab/
 
 COPY ./src /codelab/src
 
-COPY ./celery_entry_point.sh /codelab/celery_entry_point.sh
-COPY ./sysbox_celery_worker_entry_point.sh /codelab/sysbox_celery_worker_entry_point.sh
-COPY ./server_entry_point.sh /codelab/server_entry_point.sh
-COPY ./celery_beat_entry_point.sh /codelab/celery_beat_entry_point.sh
+COPY ./entrypoints/ /codelab/entrypoints/
 
 
 # Sync the project

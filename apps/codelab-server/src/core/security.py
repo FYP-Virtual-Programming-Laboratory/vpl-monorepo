@@ -24,8 +24,8 @@ def verify_vpl_key(vpl_key: str) -> bool:
 def generate_user_key(user_id: str) -> str:
     """Generate a JWT token for the user."""
     payload = {
-        "sub": user_id,
-        "exp": datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1),
+        "sub": str(user_id),
+        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1),
     }
 
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)

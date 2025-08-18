@@ -7,7 +7,6 @@ from sqlmodel import Session, col, func, select, update
 
 from src.core.dependecies import (
     require_db_session, 
-    require_super_admin_or_anonymous,
     require_super_admin,
     require_admin,
 )
@@ -23,28 +22,31 @@ from src.models import (
 )
 from src.accounts.schemas import (
     AdminDashboardSchema, 
-    CreateAdminSchema, 
+    CreateAdminSchema,
+    StudentLoginSchema, 
     UpdateAdminSchema,
     AdminLoginSchema,
 )
-from src.core.security import get_password_hash, verify_password
+from src.core.security import (
+    generate_user_key, 
+    get_password_hash, 
+    verify_password,
+)
 from src.schemas import SessionStatus
 
 
-def _create_admin(
-    db_session: Session, 
-    admin_data: CreateAdminSchema,
-    is_super_admin: bool = False,
-    admin: Admin | None = None,
+def create_admin_service(
+    db_session: Annotated[Session, Depends(require_db_session)],
+    admin_data: Annotated[CreateAdminSchema, Body()],
+    admin: Annotated[Admin, Depends(require_admin)],
 ) -> Admin:
-    """Create a new admin."""
+    """Create a new admin account."""
 
-    # check if admin already exists
-    admin = db_session.exec(
-        select(Admin).where(col(Admin.email) == admin_data.email.lower())
+    existing_admin = db_session.exec(
+        select(Admin).where(col(Admin.email) == admin_data.email)
     ).first()
 
-    if admin:
+    if existing_admin:
         raise APIException(
             message="Admin already exists.",
             error_code=APIErrorCodes.BAD_REQUEST,
@@ -52,37 +54,17 @@ def _create_admin(
         )
 
     # create admin
-    return Admin(
+    new_admin = Admin(
         first_name=admin_data.first_name,
         last_name=admin_data.last_name,
-        email=admin_data.email,
+        email=admin_data.email.lower(),
         password=get_password_hash(admin_data.password),
-        is_super_admin=is_super_admin,
-        created_by_id=admin.id if admin else None,
+        created_by_id=admin.id,
     )
 
-
-def create_admin_service(
-    db_session: Annotated[Session, Depends(require_db_session)],
-    admin_data: Annotated[CreateAdminSchema, Body()],
-    admin: Annotated[Admin | None, Depends(require_super_admin_or_anonymous)],
-) -> Admin:
-    """Create a new admin."""
-    if not admin:
-        # check that this is the first admin, if not, return an error
-        if db_session.exec(select(Admin)).first() is None:
-            raise APIException(
-                message="You are not authorized to access this resource.",
-                error_code=APIErrorCodes.FORBIDDEN,
-                status_code=status.HTTP_403_FORBIDDEN,
-            )
-
-    return _create_admin(
-        db_session, 
-        admin_data, 
-        admin=admin,
-        is_super_admin=bool(admin is None), # if admin is None, then this is the first admin and is a super admin
-    )
+    db_session.add(new_admin)
+    db_session.commit()
+    return new_admin
 
 
 def get_admin_profile_service(
@@ -182,7 +164,7 @@ def get_admin_dashboard_service(
 def admin_login_service(
     db_session: Annotated[Session, Depends(require_db_session)],
     auth_data: Annotated[AdminLoginSchema, Body()],
-) -> Admin:
+) -> tuple[Admin, str]:
     """Admin login service."""
 
     admin = db_session.exec(
@@ -202,10 +184,40 @@ def admin_login_service(
 
     if admin is None or password_verified is False:
         raise APIException(
-            message="Invalid creidentials.",
+            message="Invalid credentials.",
             error_code=APIErrorCodes.UNAUTHORIZED,
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
-    return admin
+    return admin, generate_user_key(user_id=admin.id)
 
+
+def student_login_service(
+    db_session: Annotated[Session, Depends(require_db_session)],
+    auth_data: Annotated[StudentLoginSchema, Body()],
+) -> tuple[Student, str]:
+    """Student login service."""
+
+    student = db_session.exec(
+        select(Student).where(col(Student.matric_number) == auth_data.matric_no.lower())
+    ).first()
+
+    hashed_password = (
+        student.password
+        if student else
+        get_password_hash(token_hex(nbytes=16))
+    )
+
+    password_verified = verify_password(
+        plain_password=auth_data.password, 
+        hashed_password=hashed_password,
+    )
+
+    if student is None or password_verified is False:
+        raise APIException(
+            message="Invalid credentials.",
+            error_code=APIErrorCodes.UNAUTHORIZED,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    return student, generate_user_key(user_id=student.id)

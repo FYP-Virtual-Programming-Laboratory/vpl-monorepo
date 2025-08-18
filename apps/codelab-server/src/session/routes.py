@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, File, Path, UploadFile, status
 from uuid import UUID
 
 from src.session.services.session_creation import (
+    check_session_in_creation_state_service,
     get_session_by_id_service,
     get_session_in_creation_state_service,
     initialize_session_state_service,
@@ -11,6 +12,7 @@ from src.session.services.session_creation import (
     configure_session_collaboration_service,
     configure_session_enrollment_service,
     confirm_session_creation_service,
+    discard_session_service,
 )
 from src.session.schemas import (
     SessionCollaborationSchema,
@@ -25,13 +27,25 @@ from src.models import Session as WorkflowSession
 
 router = APIRouter()
 
+@router.get(
+    "/check",
+    response_model=SessionCreationSchema | None,
+    status_code=status.HTTP_200_OK,
+    summary="Check if admin has any sessions in creation."
+)
+def check_session_in_creation(
+    session_data: Annotated[SessionCreationSchema, Depends(check_session_in_creation_state_service)]
+) -> SessionCreationSchema:
+    """Check if admin has session in creation."""
+    return session_data
+
 
 @router.post(
     "/initialize",
     response_model=SessionCreationSchema,
     status_code=status.HTTP_201_CREATED,
 )
-async def initialize_session(
+def initialize_session(
     session_data: Annotated[
         SessionCreationSchema, 
         Depends(initialize_session_state_service)
@@ -46,7 +60,7 @@ async def initialize_session(
     response_model=SessionCreationSchema,
     status_code=status.HTTP_200_OK,
 )
-async def configure_content(
+def configure_content(
     session_data: Annotated[
         SessionCreationSchema, 
         Depends(configure_session_content_service)
@@ -61,7 +75,7 @@ async def configure_content(
     response_model=SessionCreationSchema,
     status_code=status.HTTP_200_OK,
 )
-async def configure_resources(
+def configure_resources(
     session_data: Annotated[
         SessionCreationSchema, 
         Depends(configure_session_resource_service)
@@ -76,7 +90,7 @@ async def configure_resources(
     response_model=SessionCreationSchema,
     status_code=status.HTTP_200_OK,
 )
-async def configure_collaboration(
+def configure_collaboration(
     session_data: Annotated[
         SessionCreationSchema, 
         Depends(configure_session_collaboration_service)
@@ -91,7 +105,7 @@ async def configure_collaboration(
     response_model=SessionCreationSchema,
     status_code=status.HTTP_200_OK,
 )
-async def configure_enrollment(
+def configure_enrollment(
     session_data: Annotated[
         SessionCreationSchema, 
         Depends(configure_session_enrollment_service)
@@ -102,11 +116,11 @@ async def configure_enrollment(
 
 
 @router.post(
-    "/{session_id}/confirm-creation",
+    "/{session_id}/configure/confirm",
     response_model=WorkflowSession,
     status_code=status.HTTP_200_OK,
 )
-async def confirm_session(
+def confirm_session(
     session: Annotated[
         WorkflowSession, 
         Depends(confirm_session_creation_service)
@@ -114,3 +128,13 @@ async def confirm_session(
 ):
     """Confirm the creation of a session."""
     return session
+
+@router.delete(
+    "/{session_id}/configure/discard",
+    status_code=status.HTTP_200_OK,
+)
+def discard_session(
+    _: Annotated[None, Depends(discard_session_service)]
+) -> None:
+    """Discard session in creation state."""
+    return None

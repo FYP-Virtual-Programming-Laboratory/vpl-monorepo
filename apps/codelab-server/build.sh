@@ -16,9 +16,6 @@ check_services() {
         echo "Backend server is not reachable. Please check the installation."
         return 1
     fi
-
-    # TODO: Check if frontend server is reachable. When frontend is ready.
-
     return 0
 }
 

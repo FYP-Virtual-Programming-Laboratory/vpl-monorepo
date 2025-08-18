@@ -64,7 +64,7 @@ def delete_language_image(
 
 
 @router.post("/{image_id}/cancle-deletion/", response_model=LanguageImagePublicShcema)
-def cancle_langauge_image_deletion(
+async def cancle_langauge_image_deletion(
     language_image: Annotated[
         LanguageImage, Depends(cancle_language_image_delation_service)
     ],

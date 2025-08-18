@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     CODE_COLLAB_SERVICE_API_KEY: str
     CODE_COLLAB_SERVICE_TIMEOUT: float = 5
 
+    SUPER_ADMIN_EMAIL: str
+    SUPER_ADMIN_PASSWORD: str
+    SUPER_ADMIN_FIRST_NAME: str = 'John'
+    SUPER_ADMIN_LAST_NAME: str = 'Doe'
+
     # 60 minutes * 24 hours * 8 days = 8 days
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 

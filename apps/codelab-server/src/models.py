@@ -22,6 +22,7 @@ from src.schemas import (
     SessionInitializationStage,
     TaskStatus,
     SessionStatus,
+    WorkerTaskStatus,
 )
 
 
@@ -42,6 +43,23 @@ class BaseModel(SQLModel):
         sa_type=TIMESTAMP(),  # type: ignore
         sa_column_kwargs={"onupdate": func.now()},
     )
+
+
+class WorkerTask(BaseModel, table=True):
+    """This model represents a task IQ task."""
+
+    task_id: str
+    task_name: str
+    labels: JsonValue | None = Field(default=None, sa_column=Column(JSON))
+    status: WorkerTaskStatus = Field(default=WorkerTaskStatus.started, sa_column=Column(type_=Text()))
+    completed_at: datetime | None = Field(default=None)
+    cancellation_reason: str | None = Field(default=None)
+    prevent_concurrency: bool
+    concurrency_key: str | None = Field(default=None)
+
+    # task competing with this task in concurrency
+    competing_task_id: uuid.UUID | None = Field(foreign_key="workertask.id", nullable=True)
+    competing_task: 'WorkerTask' = Relationship(sa_relationship_kwargs={"lazy": "select"})
 
 
 class LanguageImage(BaseModel, table=True):
@@ -164,9 +182,25 @@ class Student(BaseModel, table=True):
     last_name: str
     matric_number: str = Field(unique=True, index=True)
     email: EmailStr = Field(unique=True, index=True)
+    last_login: datetime | None = Field(default=None)
 
     group_id: uuid.UUID | None = Field(foreign_key="group.id", nullable=True)
     group: 'Group' = Relationship(sa_relationship_kwargs={"lazy": "select"})
+
+
+class SessionInvitation(BaseModel, table=True):
+    """This model represents an invitation to a student to participate in a session."""
+
+    session_id: uuid.UUID = Field(foreign_key="session.id")
+    session: 'Session' = Relationship(sa_relationship_kwargs={"lazy": "select"})
+
+    matric_no: str = Field(index=True)
+    expired: bool = Field(default=False)
+
+    class Config:
+        table_args = (
+            UniqueConstraint("session_id", "matric_no", name="uq_session_invitation_session_matric"),
+        )
 
 
 class SessionEnrollment(BaseModel, table=True):
@@ -237,7 +271,7 @@ class Session(BaseModel, table=True):
         sa_column=Column(type_=Text()),
     )
     enrollment_link_ttl: PositiveInt = Field(default=30, description="The time to live of the enrollment link in minutes.")
-    enrollment_id: str | None = Field(
+    invitation_id: str | None = Field(
         default=None, 
         description="The enrollment ID of the session.",
         nullable=True,
@@ -247,14 +281,25 @@ class Session(BaseModel, table=True):
     # resource configuration
     language_image_id: uuid.UUID = Field(foreign_key="languageimage.id")
     language_image: LanguageImage = Relationship(sa_relationship_kwargs={"lazy": "select"})
-    configuration: 'SessionReasourceConfig' = Relationship(back_populates="session", sa_relationship_kwargs={"lazy": "select"})
+    configuration: 'SessionReasourceConfig' = Relationship(
+        back_populates="session",
+        cascade_delete=True,
+        sa_relationship_kwargs={"lazy": "select"},
+    )
+
+    exercises: list['Exercise'] = Relationship(
+        cascade_delete=True,
+        back_populates='session',
+        sa_relationship_kwargs={"lazy": "select"},
+    )
 
 
 class SessionReasourceConfig(BaseModel, table=True):
     """This model represents a VPL session configuration."""
 
-    session_id: uuid.UUID = Field(foreign_key="session.id")
+    session_id: uuid.UUID = Field(foreign_key="session.id", ondelete='CASCADE')
     session: Session = Relationship(
+        back_populates='configuration',
         sa_relationship_kwargs={"lazy": "select"},
     )
 
@@ -307,8 +352,11 @@ class Group(BaseModel, table=True):
 
 
 class Exercise(BaseModel, table=True):
-    session_id: uuid.UUID = Field(foreign_key="session.id")
-    session: Session = Relationship(sa_relationship_kwargs={"lazy": "select"})
+    session_id: uuid.UUID = Field(foreign_key="session.id", ondelete="CASCADE")
+    session: Session = Relationship(
+        back_populates='exercises',
+        sa_relationship_kwargs={"lazy": "select"},
+    )
 
     # exercise metadata
     question: str = Field(max_length=10000, nullable=False)
@@ -319,12 +367,14 @@ class Exercise(BaseModel, table=True):
 
     # exercise settings
     evaluation_flags: list['ExerciseEvaluationFlag'] = Relationship(
+        cascade_delete=True,
         back_populates='exercise',
         sa_relationship_kwargs={"lazy": "select"},
     )
 
     # exercise test cases
     test_cases: list['TestCase'] = Relationship(
+        cascade_delete=True,
         back_populates='exercise',
         sa_relationship_kwargs={"lazy": "select"},
     )
@@ -341,7 +391,7 @@ class TestCase(BaseModel, table=True):
     If it is visible, the student can see the test case and its expected output.
     """
 
-    exercise_id: uuid.UUID = Field(foreign_key="exercise.id")
+    exercise_id: uuid.UUID = Field(foreign_key="exercise.id", ondelete="CASCADE")
     exercise: Exercise = Relationship(
         back_populates='test_cases',
         sa_relationship_kwargs={"lazy": "select"},
@@ -353,7 +403,7 @@ class TestCase(BaseModel, table=True):
         description="Whether the test case is visible to the student.",
     )
 
-    test_input: str
+    test_input: str | None = Field(default=None)
     expected_output: str
     score_percentage: PositiveFloat = Field(
         description="The score percentage of the test case in the total score.",
@@ -372,7 +422,7 @@ class ExerciseEvaluationFlag(BaseModel, table=True):
     while other are scored by AI (code quality).
     """
 
-    exercise_id: uuid.UUID = Field(foreign_key="exercise.id")
+    exercise_id: uuid.UUID = Field(foreign_key="exercise.id", ondelete="CASCADE")
     exercise: 'Exercise' = Relationship(sa_relationship_kwargs={"lazy": "select"})
 
     flag: EvaluationFlag | str = Field(
@@ -394,7 +444,7 @@ class Task(BaseModel, table=True):
     A task is a submission from the student / group before they make a final submission for grading.
     """
 
-    celery_task_id: str | None = Field(default=None)
+    worker_task_id: str | None = Field(default=None)
     entry_file_path: str = Field(description="The entry file of the submitted program.")
 
     exercise_id: uuid.UUID = Field(foreign_key="exercise.id")
@@ -422,7 +472,7 @@ class ExerciseSubmission(BaseModel, table=True):
     This model represents a VPL student / group execercise submission.
     """
 
-    celery_task_id: str | None = Field(default=None)
+    worker_task_id: str | None = Field(default=None)
 
     entry_file_path: str = Field(
         description="The filename of the submitted program.",
@@ -521,8 +571,8 @@ class EvaluationFlagResult(BaseModel, table=True):
         sa_relationship_kwargs={"lazy": "select"}
     )
     
-    evaluation_flag_id: uuid.UUID = Field(foreign_key="evaluationflag.id")
-    evaluation_flag: EvaluationFlag = Relationship(sa_relationship_kwargs={"lazy": "select"})
+    evaluation_flag_id: uuid.UUID = Field(foreign_key="exerciseevaluationflag.id")
+    evaluation_flag: ExerciseEvaluationFlag = Relationship(sa_relationship_kwargs={"lazy": "select"})
     
     passed: bool
     score: PositiveFloat | None = Field(default=None)

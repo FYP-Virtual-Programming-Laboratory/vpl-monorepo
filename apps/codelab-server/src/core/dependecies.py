@@ -1,5 +1,6 @@
 from collections.abc import Generator
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -39,7 +40,7 @@ def require_authenticated_service(
 
 def require_authenticated_user_key(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(SECURITY_HEADER)],
-) -> str:
+) -> UUID:
     """Check if the provided user key is valid."""
 
     try:
@@ -51,13 +52,14 @@ def require_authenticated_user_key(
         )
 
         assert isinstance(payload, dict)
-        return payload["sub"]
+        return UUID(payload["sub"])
     except jwt.ExpiredSignatureError:
         raise APIException(
             message="User key has expired.",
             error_code=APIErrorCodes.AUTHENTICATION_FAILED,
+            status_code=status.HTTP_401_UNAUTHORIZED,
         )
-    except (jwt.PyJWTError, AssertionError):
+    except (jwt.PyJWTError, AssertionError, ValueError):
         raise APIException(
             message="Invalid token.",
             error_code=APIErrorCodes.AUTHENTICATION_FAILED,
@@ -67,11 +69,11 @@ def require_authenticated_user_key(
 
 def require_admin(
     db_session: Annotated[Session, Depends(require_db_session)],
-    user_id: Annotated[str, Depends(require_authenticated_user_key)],
-) -> bool:
+    user_id: Annotated[UUID, Depends(require_authenticated_user_key)],
+) -> Admin:
     """Check if the provided VPL API key is valid."""
     # check that active vpl user exisis
-
+    
     user  = db_session.exec(
         select(Admin).where(
             Admin.id == user_id,
@@ -88,33 +90,8 @@ def require_admin(
     return user
 
 
-def require_super_admin(
-    db_session: Annotated[Session, Depends(require_db_session)],
-    user_id: Annotated[str, Depends(require_authenticated_user_key)],
-) -> Admin:
+def require_super_admin(admin: Annotated[Admin, Depends(require_admin)]) -> Admin:
     """Check if the provided user key is valid and is a super admin."""
-    admin = require_admin(db_session, user_id)
-    if not admin.is_super_admin:
-        raise APIException(
-            message="You are not authorized to access this resource.",
-            error_code=APIErrorCodes.FORBIDDEN,
-            status_code=status.HTTP_403_FORBIDDEN,
-        )
-
-    return admin
-
-
-def require_super_admin_or_anonymous(
-    db_session: Annotated[Session, Depends(require_db_session)],
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(SECURITY_HEADER)],
-) -> Admin | None:
-    """Check if the provided user key is valid and is a admin or anonymous."""
-    try:
-        user_id = require_authenticated_user_key(credentials=credentials)
-        admin = require_admin(db_session, user_id)
-    except APIException:
-        return None
-
     if not admin.is_super_admin:
         raise APIException(
             message="You are not authorized to access this resource.",
@@ -127,7 +104,7 @@ def require_super_admin_or_anonymous(
 
 def require_student(
     db_session: Annotated[Session, Depends(require_db_session)],
-    user_id: Annotated[str, Depends(require_authenticated_user_key)],
+    user_id: Annotated[UUID, Depends(require_authenticated_user_key)],
 ) -> Student:
     """Check if the provided user key is valid and is a student."""
 
@@ -146,7 +123,7 @@ def require_student(
 
 def require_admin_or_student(
     db_session: Annotated[Session, Depends(require_db_session)],
-    user_id: Annotated[str, Depends(require_authenticated_user_key)],
+    user_id: Annotated[UUID, Depends(require_authenticated_user_key)],
 ) -> Student:
     """Check if the provided user key is valid and is a student or admin."""
 

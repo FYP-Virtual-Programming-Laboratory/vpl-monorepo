@@ -1,7 +1,7 @@
 services:
 
   redis:
-    image: redis:7.4
+    image: redis:8.2
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -9,7 +9,7 @@ services:
       timeout: 5s
       retries: 5
 
-  server:
+  server: &server
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
     restart: always
     build:
@@ -64,36 +64,21 @@ services:
     env_file:
       - .env
 
-  codelab-worker-sysbox:
-    restart: unless-stopped
-    entrypoint: ["/bin/bash", "-c", "./sysbox_celery_worker_entry_point.sh"]
-    build:
-      context: .
-    depends_on:
-      redis:
-        condition: service_healthy
-      server:
-        condition: service_started
+  taskiq-worker:
+    <<: *server
+    ports: []
+    healthcheck:
+      disable: true
+    entrypoint: ["/bin/bash", "-c", "./entrypoints/worker.sh"]
     runtime: sysbox-runc
     shm_size: '2gb'
     privileged: true
     security_opt:
       - seccomp:unconfined
-    volumes: *common_volumes
-    environment: *common_env
-    env_file:
-      - .env
 
-  codelab-beat:
-      entrypoint: ["/bin/bash", "-c", "./celery_beat_entry_point.sh"]
-      build:
-        context: .
-      depends_on:
-        redis:
-          condition: service_healthy
-        server:
-          condition: service_started
-      volumes: *common_volumes
-      environment: *common_env
-      env_file:
-        - .env
+  taskiq-scheduler:
+    <<: *server
+    ports: []
+    healthcheck:
+      disable: true
+    entrypoint: ["/bin/bash", "-c", "./entrypoints/scheduler.sh"]
