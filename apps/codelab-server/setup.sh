@@ -41,7 +41,7 @@ print_status "Step 2: Checking Sysbox installation..."
 if ! command_exists sysbox-runc; then
     print_status "Sysbox not found. Installing Sysbox..."
     # stop docker containers
-    docker rm $(docker ps -a -q) -f
+    docker stop $(docker ps -q)
 
     # Download and install Sysbox
     wget https://downloads.nestybox.com/sysbox/releases/v0.6.7/sysbox-ce_0.6.7-0.linux_amd64.deb

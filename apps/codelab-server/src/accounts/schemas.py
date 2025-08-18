@@ -71,6 +71,14 @@ class AdminLoginResponseSchema(BaseModel):
     profile: AdminProfileSchema
 
 
+class CreateStudentSchema(BaseModel):
+    first_name: str
+    last_name: str
+    password: str
+    email: EmailStr
+    matric_number: str
+
+
 class StudentProfileSchema(BaseModel):
     first_name: str
     last_name: str

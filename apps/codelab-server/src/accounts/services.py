@@ -3,7 +3,7 @@ from uuid import UUID
 from secrets import token_hex
 
 from fastapi import Depends, Body, Path, status
-from sqlmodel import Session, col, func, select, update
+from sqlmodel import Session, col, func, select, update, or_
 
 from src.core.dependecies import (
     require_db_session, 
@@ -23,6 +23,7 @@ from src.models import (
 from src.accounts.schemas import (
     AdminDashboardSchema, 
     CreateAdminSchema,
+    CreateStudentSchema,
     StudentLoginSchema, 
     UpdateAdminSchema,
     AdminLoginSchema,
@@ -191,6 +192,43 @@ def admin_login_service(
 
     return admin, generate_user_key(user_id=admin.id)
 
+
+def student_signup_service(
+    db_session: Annotated[Session, Depends(require_db_session)],
+    student_data: Annotated[CreateStudentSchema, Body()],
+) -> tuple[Student, str]:
+    """Student signup service."""
+
+    existing_student = db_session.exec(
+        select(Student).where(
+            or_(
+                col(Student.email) == student_data.email,
+                col(Student.matric_number) == student_data.matric_number.lower(),
+            )
+        )
+    ).first()
+
+    if existing_student:
+        raise APIException(
+            message="Student with these credentials already exists.",
+            error_code=APIErrorCodes.BAD_REQUEST,
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # create student
+    new_student = Student(
+        first_name=student_data.first_name,
+        last_name=student_data.last_name,
+        email=student_data.email.lower(),
+        matric_number=student_data.matric_number.lower(),
+        password=get_password_hash(student_data.password),
+    )
+
+    db_session.add(new_student)
+    db_session.commit()
+
+    return new_student, generate_user_key(user_id=new_student.id)
+    
 
 def student_login_service(
     db_session: Annotated[Session, Depends(require_db_session)],

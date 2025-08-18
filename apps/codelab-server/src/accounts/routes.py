@@ -16,6 +16,7 @@ from src.accounts.services import (
     get_admin_public_profile_service,
     list_admin_profile_service,
     student_login_service,
+    student_signup_service,
     update_admin_profile_service,
     admin_login_service,
 )
@@ -108,6 +109,21 @@ async def admin_login(
 ) -> AdminLoginResponseSchema:
     """Admin Login."""
     return AdminLoginResponseSchema.model_validate({'token': data[1], 'profile': data[0]}, from_attributes=True)
+
+
+@router.post(
+    '/students',
+    response_model=StudentLoginResponseSchema,
+    summary='Student Signup endpoint.'
+)
+async def student_signup(
+    data: Annotated[tuple[Student, str], Depends(student_signup_service)],
+) -> StudentLoginResponseSchema:
+    """Student Signup."""
+    return StudentLoginResponseSchema.model_validate(
+        {'token': data[1], 'profile': data[0]}, 
+        from_attributes=True,
+    )
 
 
 @router.post(
