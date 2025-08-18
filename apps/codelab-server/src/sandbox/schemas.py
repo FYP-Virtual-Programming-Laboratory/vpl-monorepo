@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import (
     AfterValidator,
     BaseModel,
+    ConfigDict,
     FilePath,
     NewPath,
     JsonValue,
@@ -115,6 +116,8 @@ class UpdateLanguageSchema(BaseModel):
 
 
 class LanguageImagePublicShcema(BaseModel):
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
+
     id: UUID
     name: str
     version: str
@@ -139,9 +142,6 @@ class LanguageImagePublicShcema(BaseModel):
     image_architecture: str | None
     created_at: datetime
     updated_at: datetime | None
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class CreateTaskExecutionSchema(BaseModel):

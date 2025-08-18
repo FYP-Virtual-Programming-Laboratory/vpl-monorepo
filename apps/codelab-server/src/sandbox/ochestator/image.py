@@ -6,6 +6,7 @@ from io import BytesIO
 from docker.errors import (  # type: ignore
     APIError,
     BuildError,
+    NullResource,
 )
 from docker.models.images import Image  # type: ignore
 from sqlmodel import Session
@@ -62,7 +63,7 @@ class ImageBuilder:
         Returns Dockerfile commands to create and execute an entrypoint script.
         """
         if not self.language_image.entrypoint_script:
-            return ""
+            return "# no entry point script supplied"
         encoded_script = base64.b64encode(
             self.language_image.entrypoint_script.encode()
         ).decode()
@@ -237,10 +238,16 @@ class ImageBuilder:
                 noprune=False,
             )
             return True
+        except NullResource as error:
+            # this means the image does not exisit
+            logger.error(
+                f"Failed to remove language image {self.language_image.name}: {error}",
+                extra={"image_id": self.language_image.id, "error": str(error)},
+            )
+            return True
         except APIError as error:
             logger.error(
                 f"Failed to remove language image {self.language_image.name}: {error}",
                 extra={"image_id": self.language_image.id, "error": str(error)},
             )
-
         return False

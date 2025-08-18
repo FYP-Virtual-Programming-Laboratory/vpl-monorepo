@@ -21,6 +21,7 @@ from src.models import (
     Admin,
 )
 from src.models import Session as WorkflowSession
+from src.sandbox.constants import IMAGE_BUILD_TASK_CONCURRENCY_KEY
 from src.sandbox.schemas import (
     CreateExcerciseExecutionSchema,
     CreateLanguageImageSchema,
@@ -29,20 +30,23 @@ from src.sandbox.schemas import (
 )
 from src.sandbox.tasks import build_language_image_task, program_execution_queue
 from src.schemas import ImageStatus, TaskStatus
-from src.utils import CeleryHelper
 from src.core.exceptions import APIException
 from src.core.schemas import APIErrorCodes
 from fastapi import status
+from src.utils import TaskHelper
 
 
-def create_new_langauge_image_service(
+async def create_new_langauge_image_service(
     admin: Annotated[Admin, Depends(require_admin)],
     db_session: Annotated[Session, Depends(require_db_session)],
     image_data: Annotated[CreateLanguageImageSchema, Body()],
 ) -> LanguageImage:
     """Create a new language image."""
 
-    if CeleryHelper.is_being_executed(["build_language_image_task"]):
+    if TaskHelper.check_concurrent_task(
+        db_session=db_session,
+        concurrency_key=IMAGE_BUILD_TASK_CONCURRENCY_KEY,
+    ):
         raise HTTPException(
             status_code=400,
             detail="Unbale to trigger language build as a build is in progress",
@@ -59,7 +63,7 @@ def create_new_langauge_image_service(
     db_session.refresh(image)
 
     # enqueue a celery task to build the image asynchronously
-    build_language_image_task.delay(image_id=image.id)
+    await build_language_image_task.kiq(image_id=image.id)
     return image
 
 
@@ -190,8 +194,8 @@ def cancle_language_image_delation_service(
     return language_image
 
 
-def retry_language_image_build_service(
-    _: Annotated[Session, Depends(require_db_session)],
+async def retry_language_image_build_service(
+    db_session: Annotated[Session, Depends(require_db_session)],
     admin: Annotated[Admin, Depends(require_admin)],
     language_image: Annotated[LanguageImage, Depends(get_language_image_by_id_service)],
 ) -> LanguageImage:
@@ -208,14 +212,17 @@ def retry_language_image_build_service(
             status_code=status.HTTP_403_FORBIDDEN,
         )
 
-    if CeleryHelper.is_being_executed(["build_language_image_task"]):
+    if TaskHelper.check_concurrent_task(
+        db_session=db_session,
+        concurrency_key=IMAGE_BUILD_TASK_CONCURRENCY_KEY,
+    ):
         raise APIException(
             message="Unable to trigger language build as a build is in progress",
             error_code=APIErrorCodes.LANGUAGE_IMAGE_BUILD_IN_PROGRESS,
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    build_language_image_task.delay(image_id=language_image.id)
+    await build_language_image_task.kiq(image_id=language_image.id)
     return language_image
 
 
@@ -360,7 +367,7 @@ def get_tasks_queue_list_service(
     ).all()
 
 
-def create_task_execution_service(
+async def create_task_execution_service(
     db_session: Annotated[Session, Depends(require_db_session)],
     session: Annotated[WorkflowSession, Depends(get_active_session_by_id_service)],
     student: Annotated[Student, Depends(require_student)],
@@ -455,20 +462,16 @@ def create_task_execution_service(
         exercise_id=excercise.id,
         entry_file_path=str(task_data.entry_file_path),
     )
-
-    # wait a bit for the request to be done before sending the task to the queue
-    celery_result = program_execution_queue.apply_async(
-        countdown=5,
-        kwargs={'task_id': task.id},
-    )
-
-    if celery_result:
-        task.celery_task_id = celery_result.id
-
     db_session.add(task)
     db_session.commit()
-    db_session.refresh(task)
 
+    schedule = await program_execution_queue.kiq(task_id=task.id)
+    if schedule:
+        task.worker_task_id = schedule.task_id
+        db_session.add(task)
+        db_session.commit()
+
+    db_session.refresh(task)
     return task
 
 
@@ -486,19 +489,26 @@ def cancle_queued_task_service(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
+    cancelled = TaskHelper.cancel_task(
+        db_session=db_session,
+        task_id=task.worker_task_id,
+    )
+
+    if not cancelled:
+        raise APIException(
+            message="Failed to cancel task. Task already in progress.",
+            error_code=APIErrorCodes.TASK_CANCELLATION_FAILED,
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
     task.status = TaskStatus.cancelled
     db_session.add(task)
     db_session.commit()
 
-    # attempt to cancel the tasks celery process if it exists
-    celery_result = program_execution_queue.AsyncResult(task.celery_task_id)
-    if celery_result:
-        celery_result.revoke(terminate=True)
-
     return task
 
 
-def create_exercise_submission_service(
+async def create_exercise_submission_service(
     db_session: Annotated[Session, Depends(require_db_session)],
     session: Annotated[WorkflowSession, Depends(get_session_by_id_service)],
     submission_data: Annotated[CreateExcerciseExecutionSchema, Body()],
@@ -586,20 +596,16 @@ def create_exercise_submission_service(
         entry_file_path=str(submission_data.entry_file_path),
     )
 
-    # send execercise submission into queue to be executed
-    celery_result = program_execution_queue.apply_async(
-        countdown=5,
-        kwargs={'submission_id': submission.id},
-    )
-
-    if celery_result:
-        submission.celery_task_id = celery_result.id
-
     db_session.add(submission)
     db_session.commit()
+
+    schedule = await program_execution_queue.kiq(submission_id=submission.id)
+    if schedule:
+        submission.worker_task_id = schedule.task_id
+        db_session.add(submission)
+        db_session.commit()
+
     db_session.refresh(submission)
-
-
     return submission
 
 
@@ -685,13 +691,20 @@ def cancle_queued_exercise_submission_service(
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
+    cancelled = TaskHelper.cancel_task(
+        db_session=db_session,
+        task_id=submission.worker_task_id,
+    )
+
+    if not cancelled:
+        raise APIException(
+            message="Failed to cancel task. Task already in progress.",
+            error_code=APIErrorCodes.TASK_CANCELLATION_FAILED,
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
     submission.status = TaskStatus.cancelled
     db_session.add(submission)
     db_session.commit()
-
-    # attempt to cancel the submission celery process if it exists
-    celery_result = program_execution_queue.AsyncResult(submission.celery_task_id)
-    if celery_result:
-        celery_result.revoke(terminate=True)
 
     return submission

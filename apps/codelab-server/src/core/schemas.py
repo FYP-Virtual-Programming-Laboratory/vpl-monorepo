@@ -39,12 +39,14 @@ class APIErrorCodes(StrEnum):
 
     # session errors
     SESSION_INACTIVE = "session_inactive"
+    SESSION_NOT_FOUND = "session_not_found"
 
     # task errors
     TASK_NOT_IN_QUEUE = "task_not_in_queue"
     TASK_QUEUE_FULL = "task_queue_full"
     TASK_EXECUTION_THRESHOLD_EXCEEDED = "task_execution_threshold_exceeded"
     TASK_ALREADY_IN_QUEUE = "task_already_in_queue"
+    TASK_CANCELLATION_FAILED = "task_cancellation_failed"
 
     # general object errors
     NOT_FOUND = "not_found"

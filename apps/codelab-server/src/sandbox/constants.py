@@ -1,0 +1,1 @@
+IMAGE_BUILD_TASK_CONCURRENCY_KEY = 'build_language_image_key'

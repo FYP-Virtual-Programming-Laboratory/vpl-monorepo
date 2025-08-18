@@ -2,32 +2,45 @@ import signal
 from collections.abc import Generator
 from contextlib import contextmanager
 
-from src.worker import celery_app
+from sqlmodel import Session, select, col
+from src.models import WorkerTask
+from src.schemas import WorkerTaskStatus
 
 
-class CeleryHelper:
-    """Contains helper functionalities to be used while interacting with Celery."""
+class TaskHelper:
 
     @staticmethod
-    def is_being_executed(tasks_name: str | list[str]) -> bool:
-        """Returns whether the task with given task_name is already being executed.
+    def check_concurrent_task(
+        db_session: Session,
+        concurrency_key: str | None = None, 
+        task_name: str | None = None
+    ) -> WorkerTask | None:
+        """Checks if there is an active WorkerTask with the same concurrency key or task name."""
 
-        Args:
-            task_name: Name of the task to check if it is running currently.
-        Returns: A boolean indicating whether the task with the given task name is
-            running currently.
-        """
-        active_tasks = celery_app.control.inspect().active()
-        if active_tasks:
-            for _, running_tasks in active_tasks.items():
-                intersects = bool(
-                    set([task["name"] for task in running_tasks]).intersection(
-                        tasks_name
-                    )
-                )
+        # Ensure that at least one of task_name or concurrency_key is provided
+        assert task_name is not None or concurrency_key is not None
+        conditions = [WorkerTask.status == WorkerTaskStatus.started]
 
-                if intersects:
-                    return True
+        if concurrency_key is not None:
+            conditions.append(WorkerTask.concurrency_key == concurrency_key)
+        elif task_name is not None:
+            conditions.append(WorkerTask.task_name == task_name)
+
+        statement = select(WorkerTask).where(*conditions)
+        return db_session.exec(statement).first()
+
+    @staticmethod
+    def cancel_task(db_session: Session, task_id: str) -> bool:
+        """Attempts to cancel a running task."""
+        task = db_session.exec(
+            select(WorkerTask).where(WorkerTask.task_id == task_id)
+        ).first()
+
+        if task and task.status == WorkerTaskStatus.started:
+            task.status = WorkerTaskStatus.cancelled
+            db_session.add(task)
+            db_session.commit()
+            return True
 
         return False
 
@@ -65,3 +78,15 @@ def raise_timeout(timeout: int) -> Generator[None, None, TimeoutStatus]:
     finally:
         # Disable the alarm
         signal.alarm(0)
+
+
+@contextmanager
+def atomic_transaction_block(db_session: Session):
+    """Context manager for making a block of code atomic."""
+
+    try:
+        yield
+        db_session.commit()
+    except Exception:
+        db_session.rollback()
+        raise

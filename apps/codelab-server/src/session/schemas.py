@@ -1,5 +1,12 @@
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, PositiveFloat, model_validator
+from pydantic import (
+    BaseModel, 
+    ConfigDict, 
+    EmailStr, 
+    Field, 
+    PositiveFloat, 
+    model_validator,
+)
 from datetime import datetime, timedelta
 from uuid import UUID
 from pydantic import PositiveInt
@@ -10,6 +17,8 @@ from typing_extensions import Self
 
 # Session creation schemas
 class SessionInitializationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     title: str
     description: str
     language_image_id: UUID
@@ -31,20 +40,24 @@ class SessionInitializationSchema(BaseModel):
 
 
 class SessionCollaborationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     collaboration_enabled: bool
     collaboration_group_size: PositiveInt
     collaboration_group_open: bool
 
 
 class SessionEnrollmentSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     enrollment_method: SessionEnrollmentMethod
     enrollment_link_ttl: PositiveInt = Field(
         default=30,
         description="The time to live of the enrollment link in minutes.",
     )
-    manual_invite_emails: list[EmailStr] | None = Field(
+    invitation_list: list[str] | None = Field(
         default=None,
-        description="The emails of the students to manually invite to the session.",
+        description="The matriculation number of the students to invite to the session.",
     )
 
     @model_validator(mode="after")
@@ -52,13 +65,15 @@ class SessionEnrollmentSchema(BaseModel):
         """Ensure that the enrollment method is valid."""
 
         if self.enrollment_method == SessionEnrollmentMethod.manual_invite:
-            if self.manual_invite_emails is None:
-                raise ValueError("Manual invite emails must be provided when enrollment method is manual invite.")
+            if self.invitation_list is None:
+                raise ValueError("invitation_list must be provided when enrollment method is manual invite.")
 
         return self
 
 
 class SessionResourceConfigurationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     max_queue_size: PositiveInt = Field(
         default=15,
         description="The maximum number of tasks allowed for a students to submit at a time.",
@@ -90,32 +105,34 @@ class SessionResourceConfigurationSchema(BaseModel):
 
 
 class SessionCreationDetailSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
     title: str | None = None
     description: str | None = None
     language_image: LanguageImagePublicShcema | None = None
-    session_duration: PositiveInt | None = None
-    session_start_time: datetime | None = None
+    duration: PositiveInt | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     collaboration_enabled: bool | None = None
     collaboration_group_size: PositiveInt | None = None
     collaboration_group_open: bool | None = None
     enrollment_method: SessionEnrollmentMethod | None = None
     enrollment_link_ttl: PositiveInt | None = None
     exercises: list['ExcercisePublicSchema'] | None = None
-    max_queue_size: PositiveInt | None = None
-    max_number_of_runs: PositiveInt | None = None
-    wall_time_limit: PositiveInt | None = None
-    cpu_time_limit: PositiveInt | None = None
-    memory_limit: PositiveInt | None = None
-    max_processes_and_or_threads: PositiveInt | None = None
-    enable_network: bool | None = None
+    configuration: SessionResourceConfigurationSchema | None = None
 
 
 class SessionCreationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     stage: SessionInitializationStage
     session_details: SessionCreationDetailSchema | None = None
 
 
 class SessionContentConfigurationSchema(BaseModel):
+
+    model_config = ConfigDict(from_attributes=True)
     exercises: list['ExerciseCreationSchema'] = Field(min_items=1)
 
     @model_validator(mode="after")
@@ -134,20 +151,26 @@ class SessionContentConfigurationSchema(BaseModel):
 
 
 class EvaluationFlagCreationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     flag: EvaluationFlag | str
     visible: bool
     score_percentage: PositiveFloat = Field(ge=0, le=100, default=100)
 
 
 class TestCaseCreationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     title: str
     visible: bool
-    test_input: str
+    test_input: str | None
     expected_output: str
     score_percentage: PositiveFloat = Field(ge=0, le=100, default=100)
 
 
 class ExerciseCreationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     question: str 
     instructions: str
     score_percentage: PositiveFloat = Field(ge=0, le=100, default=100)

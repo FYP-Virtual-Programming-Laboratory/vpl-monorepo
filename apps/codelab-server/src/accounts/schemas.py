@@ -1,6 +1,6 @@
 from typing import Self
 from uuid import UUID
-from pydantic import EmailStr, BaseModel, model_validator
+from pydantic import EmailStr, BaseModel, model_validator, ConfigDict
 from datetime import datetime
 
 
@@ -30,22 +30,28 @@ class UpdateAdminSchema(BaseModel):
 
 
 class AdminProfileSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     first_name: str
     last_name: str
     email: EmailStr
     is_active: bool
+    last_login: datetime | None
 
 
 
 class AdminPublicSchema(BaseModel):
+
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     first_name: str
     last_name: str
     email: EmailStr
     is_active: bool
     created_at: datetime
-    updated_at: datetime
+    updated_at: datetime | None
 
 
 class AdminDashboardSchema(BaseModel):
@@ -58,3 +64,27 @@ class AdminDashboardSchema(BaseModel):
 class AdminLoginSchema(BaseModel):
     email: EmailStr
     password: str
+
+
+class AdminLoginResponseSchema(BaseModel):
+    token: str
+    profile: AdminProfileSchema
+
+
+class StudentProfileSchema(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    matric_number: str
+    last_login: datetime | None
+
+
+class StudentLoginSchema(BaseModel):
+    matric_no: str
+    password: str
+
+
+class StudentLoginResponseSchema(BaseModel):
+    token: str
+    profile: StudentProfileSchema
+

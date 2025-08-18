@@ -5,14 +5,15 @@ from typing import Annotated
 from uuid import UUID
 from fastapi import Depends, Body, File, Path, UploadFile, status
 from src.core.dependecies import require_db_session, require_admin
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select, delete
 from src.core.exceptions import APIException
 from src.core.schemas import APIErrorCodes
 from pydantic import EmailStr, ValidationError
 from src.core.config import settings
 from src.models import (
     Admin,
-    SessionEnrollment, 
+    SessionEnrollment,
+    SessionInvitation, 
     Student,
     Exercise, 
     ExerciseEvaluationFlag, 
@@ -36,6 +37,7 @@ from src.session.schemas import (
     SessionInitializationSchema,
     SessionResourceConfigurationSchema,
 )
+from src.utils import atomic_transaction_block
 
 
 # ------------------------------------------------------------
@@ -88,6 +90,32 @@ def get_session_in_creation_state_service(
     return session
 
 
+def check_session_in_creation_state_service(
+    db_session: Annotated[Session, Depends(require_db_session)],
+    admin: Annotated[Admin, Depends(require_admin)],
+) -> WorkflowSession:
+    """Check if admin has any session in creation state."""
+
+    session = db_session.exec(
+        select(WorkflowSession).where(
+            WorkflowSession.status == SessionStatus.creating, 
+            WorkflowSession.admin == admin,
+        ).order_by(WorkflowSession.created_at)
+    ).first()
+
+    if not session:
+        raise APIException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message="No session in creation state.",
+            error_code=APIErrorCodes.SESSION_NOT_FOUND,
+        )
+
+    return SessionCreationSchema(
+        stage=session.initialization_stage,
+        session_details=SessionCreationDetailSchema.model_validate(session)
+    )
+
+
 def initialize_session_state_service(
     db_session: Annotated[Session, Depends(require_db_session)],
     admin: Annotated[Admin, Depends(require_admin)],
@@ -115,25 +143,33 @@ def initialize_session_state_service(
             error_code=APIErrorCodes.BAD_REQUEST,
         )
 
-    session = Session(
-        admin_id=admin.id,
-        title=session_data.title,
-        description=session_data.description,
-        language_image_id=session_data.language_image_id,
-        start_time=session_data.session_start_time,
-        end_time=(
-            session_data.session_end_time 
-            if session_data.session_end_time else
-            session_data.session_start_time + timedelta(hours=session_data.session_duration)
-        ),
-        initialization_state="",
-    )
+    with atomic_transaction_block(db_session=db_session):
+        session = WorkflowSession(
+            admin_id=admin.id,
+            title=session_data.title,
+            description=session_data.description,
+            language_image_id=session_data.language_image_id,
+            start_time=session_data.session_start_time,
+            end_time=(
+                session_data.session_end_time 
+                if session_data.session_end_time else
+                session_data.session_start_time + timedelta(hours=session_data.session_duration)
+            ),
+            initialization_stage=SessionInitializationStage.content_configuration,
+        )
 
-    db_session.add(session)
-    db_session.commit()
+        # first discard any sessions in creation state by this admin
+        db_session.exec(delete(WorkflowSession).where(
+            WorkflowSession.status == SessionStatus.creating, 
+            WorkflowSession.admin == admin,
+        ))
+
+        # then initialize the new session
+        db_session.add(session)
+        db_session.commit()
 
     return SessionCreationSchema(
-        stage=SessionInitializationStage.content_configuration,
+        stage=session.initialization_stage,
         session_details=SessionCreationDetailSchema.model_validate(session)
     )
 
@@ -146,67 +182,75 @@ def configure_session_content_service(
 ) -> SessionCreationSchema:
     """Configure the content of the session."""
     
-    # before adding new content delete existing content
-    # This is to avoid having dublicate content and it allows the user the
-    # optiion of going back and editing the content.
-
-    db_session.exec(
-        select(ExerciseEvaluationFlag).where(ExerciseEvaluationFlag.exercise_id.in_(
-            select(Exercise.id).where(Exercise.session_id == session.id)
-        ))
-    ).delete()
-    db_session.exec(
-        select(Exercise).where(Exercise.session_id == session.id)
-    ).delete()
-    db_session.exec(
-        select(TestCase).where(TestCase.exercise_id.in_(
-            select(Exercise.id).where(Exercise.session_id == session.id)
-        ))
-    ).delete()
-
-    # create exercises, evaluation flags and test cases
-    exercises_to_create = []
-    evaluation_flags_to_create = []
-    test_cases_to_create = []
-
-    for exercise_data in session_data.exercises:
-        exercise = Exercise(
-            session_id=session.id,
-            question=exercise_data.question,
-            instructions=exercise_data.instructions,
-            score_percentage=exercise_data.score_percentage,
+    with atomic_transaction_block(db_session=db_session):
+        # before adding new content delete existing content
+        # This is to avoid having dublicate content and it allows the user the
+        # optiion of going back and editing the content.
+        db_session.exec(
+            delete(ExerciseEvaluationFlag).where(
+                col(ExerciseEvaluationFlag.id).in_(
+                    select(ExerciseEvaluationFlag.id)
+                    .join(Exercise, onclause=Exercise.id == ExerciseEvaluationFlag.exercise_id)
+                    .where(Exercise.session_id == session.id)
+                )
+            )
         )
-        exercises_to_create.append(exercise)
 
-        for test_case_data in exercise_data.test_cases:
-            test_case = TestCase(
-                exercise_id=exercise.id,
-                title=test_case_data.title,
-                visible=test_case_data.visible,
-                test_input=test_case_data.test_input,
-                expected_output=test_case_data.expected_output,
-                score_percentage=test_case_data.score_percentage,
+        db_session.exec(
+            delete(TestCase).where(
+                col(TestCase.id).in_(
+                    select(TestCase.id)
+                    .join(Exercise, onclause=Exercise.id == TestCase.exercise_id)
+                    .where(Exercise.session_id == session.id)
+                )
             )
-            test_cases_to_create.append(test_case)
+        )
 
-        for evaluation_flag_data in exercise_data.evaluation_flags:
-            evaluation_flag = ExerciseEvaluationFlag(
-                exercise_id=exercise.id,
-                flag=evaluation_flag_data.flag,
-                visible=evaluation_flag_data.visible,
-                score_percentage=evaluation_flag_data.score_percentage,
+        db_session.exec(delete(Exercise).where(Exercise.session_id == session.id))
+
+        # create exercises, evaluation flags and test cases
+        exercises_to_create = []
+        evaluation_flags_to_create = []
+        test_cases_to_create = []
+
+        for exercise_data in session_data.exercises:
+            exercise = Exercise(
+                session_id=session.id,
+                question=exercise_data.question,
+                instructions=exercise_data.instructions,
+                score_percentage=exercise_data.score_percentage,
             )
-            evaluation_flags_to_create.append(evaluation_flag)
+            exercises_to_create.append(exercise)
 
-    # commit the changes
-    db_session.add_all(exercises_to_create)
-    db_session.add_all(test_cases_to_create)
-    db_session.add_all(evaluation_flags_to_create)
+            for test_case_data in exercise_data.test_cases:
+                test_case = TestCase(
+                    exercise_id=exercise.id,
+                    title=test_case_data.title,
+                    visible=test_case_data.visible,
+                    test_input=test_case_data.test_input,
+                    expected_output=test_case_data.expected_output,
+                    score_percentage=test_case_data.score_percentage,
+                )
+                test_cases_to_create.append(test_case)
 
-    # update session initialization stage
-    session.initialization_stage = SessionInitializationStage.resource_configuration
-    db_session.add(session)
-    db_session.commit()
+            for evaluation_flag_data in exercise_data.evaluation_flags:
+                evaluation_flag = ExerciseEvaluationFlag(
+                    exercise_id=exercise.id,
+                    flag=evaluation_flag_data.flag,
+                    visible=evaluation_flag_data.visible,
+                    score_percentage=evaluation_flag_data.score_percentage,
+                )
+                evaluation_flags_to_create.append(evaluation_flag)
+
+        # commit the changes
+        db_session.add_all(exercises_to_create)
+        db_session.add_all(test_cases_to_create)
+        db_session.add_all(evaluation_flags_to_create)
+
+        # update session initialization stage
+        session.initialization_stage = SessionInitializationStage.resource_configuration
+        db_session.add(session)
+        db_session.commit()
 
     return SessionCreationSchema(
         stage=session.initialization_stage,
@@ -221,22 +265,26 @@ def configure_session_resource_service(
     session_data: Annotated[SessionResourceConfigurationSchema, Body()],
 ) -> SessionCreationSchema:
     """Configure the resource of the session."""
-    
-    # delete previous reasource configuration
-    db_session.exec(
-        select(SessionReasourceConfig).where(SessionReasourceConfig.session_id == session.id)
-    ).delete()
 
-    # create new reasource configuration
-    reasource_configuration = SessionReasourceConfig(
-        session_id=session.id,
-        **session_data.model_dump(),
-    )
+    with atomic_transaction_block(db_session=db_session):
+        # delete previous reasource configuration
+        db_session.exec(
+            delete(SessionReasourceConfig).where(
+                SessionReasourceConfig.session_id == session.id
+            )
+        )
 
-    # update session initialization stage
-    session.initialization_stage = SessionInitializationStage.collaboration_configuration
-    db_session.add(session)
-    db_session.commit()
+        # create new reasource configuration
+        reasource_configuration = SessionReasourceConfig(
+            session_id=session.id,
+            **session_data.model_dump(),
+        )
+
+        # update session initialization stage
+        session.initialization_stage = SessionInitializationStage.collaboration_configuration
+        db_session.add(reasource_configuration)
+        db_session.add(session)
+        db_session.commit()
 
     return SessionCreationSchema(
         stage=session.initialization_stage,
@@ -252,10 +300,10 @@ def configure_session_collaboration_service(
 ) -> SessionCreationSchema:
     """Configure the collaboration of the session."""
 
-    session.sqlmodel_update(**session_data.model_dump())
+    session.sqlmodel_update(obj=session_data.model_dump())
 
     # update session initialization stage
-    session.initialization_stage = SessionInitializationStage.enrollment_configuration
+    session.initialization_stage = SessionInitializationStage.enrollment
     db_session.add(session)
     db_session.commit()
 
@@ -265,29 +313,23 @@ def configure_session_collaboration_service(
     )
 
 
-def _extract_enrollment_data_from_csv(
-    csv_file: UploadFile,
-) -> list[EmailStr]:
-    """Extract the enrollment data from the CSV file.
-
-    Validates that the CSV has a header 'email' and each row contains a valid email.
-    """
+def _extract_session_invites_from_csv(csv_file: UploadFile) -> list[str]:
+    """Extract the enrollment data from the CSV file."""
 
     csv_file.file.seek(0)
     csv_reader = csv.DictReader(csv_file.file)
-    if 'email' not in csv_reader.fieldnames:
-        raise ValueError("CSV file must contain a header named 'email'.")
 
-    enrollment_data = []
-    for i, row in enumerate(csv_reader, start=1):  # start=1 to account for header row
-        email = row.get('email', '').strip()
-        if not email:
-            raise ValueError(f"Missing email in row {i}.")
-        try:
-            validated_email = EmailStr(email)
-        except ValidationError:
-            raise ValueError(f"Invalid email '{email}' in row {i}.")
-        enrollment_data.append(validated_email)
+    if 'matric_no' not in csv_reader.fieldnames:
+        raise ValueError("CSV file must contain a header named `matric_no`.")
+
+    enrollment_data: list[str] = []
+    for index, row in enumerate(csv_reader):
+        matric_no = row.get('matric_no', None)
+
+        if matric_no is None:
+            raise ValueError(f"Matric no missing in row {index}")
+
+        enrollment_data.append(matric_no)
 
     return enrollment_data
 
@@ -304,73 +346,63 @@ def configure_session_enrollment_service(
 ) -> SessionCreationSchema:
     """Configure the enrollment of the session."""
 
-    if session_data.enrollment_method == SessionEnrollmentMethod.bulk_upload:
-        if csv_file is None:
-            raise APIException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                message="CSV file is required when enrollment method is bulk upload.",
-                error_code=APIErrorCodes.INVALID_ENROLLMENT_DATA,
+    with atomic_transaction_block(db_session=db_session):
+        if session_data.enrollment_method in [
+            SessionEnrollmentMethod.bulk_upload,
+            SessionEnrollmentMethod.manual_invite,
+        ]:
+            # first delete any existing invites from the system
+            db_session.exec(
+                delete(SessionInvitation).where(SessionInvitation.session_id == session.id)
             )
 
-        try:
-            # extract the enrollment data from the csv file
-            enrollment_data = _extract_enrollment_data_from_csv(csv_file)
-        except ValueError as error:
-            raise APIException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                message="Invalid enrollment data. Ensure csv matches the required format.",
-                error_code=APIErrorCodes.INVALID_ENROLLMENT_DATA,
-                detail={"reason": str(error)},
-            ) from error
+            invitation_list: list[str] = []
+            if session_data.enrollment_method == SessionEnrollmentMethod.manual_invite:
+                invitation_list = session_data.invitation_list
+            else:
+                if csv_file is None:
+                    raise APIException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        message="CSV file is required when enrollment method is bulk upload.",
+                        error_code=APIErrorCodes.INVALID_ENROLLMENT_DATA,
+                    )
 
-        # create student and session enrollment records from each email
-        for email in set(enrollment_data):
-            # first check if student already exists
-            student = db_session.exec(
-                select(Student).where(Student.email == email)
-            ).first()
+                try:
+                    # extract the enrollment data from the csv file
+                    invitation_list = _extract_session_invites_from_csv(csv_file)
+                except ValueError as error:
+                    raise APIException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        message="Invalid csv file. Ensure csv matches the required format.",
+                        error_code=APIErrorCodes.INVALID_ENROLLMENT_DATA,
+                        detail={"reason": str(error)},
+                    ) from error
+            
+            session_invites = [
+                SessionInvitation(matric_no=matric_no, session=session)
+                for matric_no in set(invitation_list)
+            ]
 
-            if not student:
-                # create new student
-                student = Student(email=email)
-                db_session.add(student)
+            # Add validation check for empty invitation list
+            if not session_invites:
+                raise APIException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    message="Invitation list cannot be empty.",
+                    error_code=APIErrorCodes.INVALID_ENROLLMENT_DATA,
+                )
 
-            # create session enrollment record
-            session_enrollment = SessionEnrollment(
-                session_id=session.id,
-                student_id=student.id,
-            )
-            db_session.add(session_enrollment)
+            db_session.add_all(session_invites)
 
-    if session_data.manual_invite_emails:
-        for email in set(session_data.manual_invite_emails):
-            # first check if student already exists
-            student = db_session.exec(
-                select(Student).where(Student.email == email)
-            ).first()
+        # update session initialization stage and enrollment id
+        session.invitation_id = secrets.token_urlsafe(10)
+        session.initialization_stage = SessionInitializationStage.confirmation
+        db_session.add(session)
+        db_session.commit()
 
-            if not student:
-                # create new student
-                student = Student(email=email)
-                db_session.add(student)
-
-            # create session enrollment record
-            session_enrollment = SessionEnrollment(
-                session_id=session.id,
-                student_id=student.id,
-            )
-            db_session.add(session_enrollment)
-
-    # update session initialization stage and enrollment id
-    session.enrollment_id = secrets.token_urlsafe(10)
-    session.initialization_stage = SessionInitializationStage.confirmation
-    db_session.add(session)
-    db_session.commit()
-
-    return SessionCreationSchema(
-        stage=session.initialization_stage,
-        session_details=SessionCreationDetailSchema.model_validate(session)
-    )
+        return SessionCreationSchema(
+            stage=session.initialization_stage,
+            session_details=SessionCreationDetailSchema.model_validate(session)
+        )
 
 
 def confirm_session_creation_service(
@@ -387,11 +419,22 @@ def confirm_session_creation_service(
             message="Session is not in confirmation stage.",
             error_code=APIErrorCodes.BAD_REQUEST,
         )
-    
+
     # mark session as created
     session.status = SessionStatus.created
     db_session.add(session)
     db_session.commit()
 
     # TODO: Trigger session created lifecycle event, here to notify other VPL services
+    return session
+
+
+def discard_session_service(
+    db_session: Annotated[Session, Depends(require_db_session)],
+    admin: Annotated[Admin, Depends(require_admin)],
+    session: Annotated[WorkflowSession, Depends(get_session_in_creation_state_service)],
+) -> None:
+    """Discard a session in creation state service."""
+    db_session.delete(session)
+    db_session.commit()
     return session
