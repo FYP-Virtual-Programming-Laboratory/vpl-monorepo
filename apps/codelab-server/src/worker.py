@@ -88,6 +88,7 @@ class ConcurrencyMiddleware(TaskiqMiddleware):
             task.status = WorkerTaskStatus.in_progress
             db_session.add(task)
             db_session.commit()
+            return message
 
     def post_execute(self, message: TaskiqMessage, result: TaskiqResult) -> None:
         """Update task status in DB to completed."""

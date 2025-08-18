@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal
 from pydantic import (
     AnyUrl,
     BeforeValidator,
+    Field,
     HttpUrl,
     computed_field,
     model_validator,
@@ -44,6 +45,10 @@ class Settings(BaseSettings):
     CODE_COLLAB_SERVICE_API_KEY: str
     CODE_COLLAB_SERVICE_TIMEOUT: float = 5
 
+    LOAD_FIXTURES: bool = Field(
+        default=False,
+        description="Permit loading seed fixtures at startup (do not enable in production)."
+    )
     SUPER_ADMIN_EMAIL: str
     SUPER_ADMIN_PASSWORD: str
     SUPER_ADMIN_FIRST_NAME: str = 'John'
@@ -98,6 +103,14 @@ class Settings(BaseSettings):
         self._check_default_secret("SECRET_KEY", self.SECRET_KEY)
         self._check_default_secret("EXTERNAL_API_KEY", self.EXTERNAL_API_KEY)
         self._check_default_secret("VPL_API_KEY", self.VPL_API_KEY)
+        return self
+        
+    @model_validator(mode="after")
+    def _validate_fixtures_config(self) -> Self:
+        if self.ENVIRONMENT == "production" and self.LOAD_FIXTURES:
+            raise ValueError(
+                "LOAD_FIXTURES must be disabled in production for security reasons"
+            )
         return self
 
 

@@ -1,10 +1,13 @@
 from sqlmodel import Session, select
 from src.core.config import settings
-from src.models import Admin
+from src.models import Admin, LanguageImage
+from src.schemas import ImageStatus
 from src.core.security import get_password_hash
+from src.sandbox.tasks import build_language_image_task
+from uuid import UUID
 
 
-def __create_super_admin(db_session: Session) -> None:
+async def __create_super_admin(db_session: Session) -> None:
     """Create super admin."""
 
     # check if super admin account already exisits in DB
@@ -24,7 +27,43 @@ def __create_super_admin(db_session: Session) -> None:
         db_session.commit()
 
 
-def create_fixtures(db_session: Session) -> None:
-    """Creata DB fixtures."""
+async def __create_language_image(db_session: Session) -> None:
+    """Create some base language images."""
 
-    __create_super_admin(db_session=db_session)
+    default_image_id = UUID('c19b4fb5-4547-4f07-a89d-3e8d74fa145b')
+
+    # check if language image already exists in DB
+    language_image = db_session.exec(
+        select(LanguageImage).where(LanguageImage.id == default_image_id)
+    ).first()
+
+    if not language_image:
+        # Create base language image
+        language_image = LanguageImage(
+            id=default_image_id,
+            name="Python",
+            version="3.12",
+            base_image="python:3.12-alpine",
+            description="Base Python3.12 image with no extra packages.",
+            test_build=False,
+            status=ImageStatus.created,
+            file_extension=".py",
+            compile_file_extension=None,
+            build_test_file_content=None,
+            build_test_std_in=None,
+            requires_compilation=False,
+            compilation_command=None,
+            default_execution_command="python <filename>",
+            entrypoint_script=None,
+        )
+
+        db_session.add(language_image)
+        db_session.commit()
+        await build_language_image_task.kiq(image_id=language_image.id)
+
+
+async def create_fixtures(db_session: Session) -> None:
+    """Create DB fixtures."""
+
+    await __create_super_admin(db_session=db_session)
+    await __create_language_image(db_session=db_session)
