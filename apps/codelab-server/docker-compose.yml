@@ -72,9 +72,9 @@ services:
     entrypoint: ["/bin/bash", "-c", "./entrypoints/worker.sh"]
     runtime: sysbox-runc
     shm_size: '2gb'
-    privileged: true
-    security_opt:
-      - seccomp:unconfined
+    # privileged: true
+    # security_opt:
+    #   - seccomp:unconfined
 
   taskiq-scheduler:
     <<: *server

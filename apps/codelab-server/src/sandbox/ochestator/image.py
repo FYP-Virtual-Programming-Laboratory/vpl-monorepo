@@ -7,6 +7,7 @@ from docker.errors import (  # type: ignore
     APIError,
     BuildError,
     NullResource,
+    NotFound,
 )
 from docker.models.images import Image  # type: ignore
 from sqlmodel import Session
@@ -116,7 +117,6 @@ class ImageBuilder:
         self.language_image.docker_image_id = image.id
         self.language_image.image_size = self.__get_image_size(image)
         self.language_image.image_architecture = image.attrs.get("Architecture", "")
-        self.language_image.docker_image_id = image.id
         self.language_image.build_logs = list(build_logs)  # type: ignore
         self._update_status(ImageStatus.build_succeeded)
 
@@ -229,7 +229,14 @@ class ImageBuilder:
             )
 
     def remove(self) -> bool:
-        """Removes the Docker image."""
+        """Removes the Docker image. Returns True if the image was removed or didn't exist."""
+        
+        if not self.language_image.docker_image_id:
+            logger.info(
+                f"No Docker image ID found for {self.language_image.name}, considering already removed",
+                extra={"image_id": self.language_image.id},
+            )
+            return True
 
         try:
             self.docker_client.images.remove(
@@ -238,10 +245,10 @@ class ImageBuilder:
                 noprune=False,
             )
             return True
-        except NullResource as error:
-            # this means the image does not exisit
-            logger.error(
-                f"Failed to remove language image {self.language_image.name}: {error}",
+        except (NullResource, NotFound) as error:
+            # this means the image does not exist
+            logger.info(
+                f"Image to be removed not found {self.language_image.name}: {error}",
                 extra={"image_id": self.language_image.id, "error": str(error)},
             )
             return True
@@ -250,4 +257,4 @@ class ImageBuilder:
                 f"Failed to remove language image {self.language_image.name}: {error}",
                 extra={"image_id": self.language_image.id, "error": str(error)},
             )
-        return False
+            return False

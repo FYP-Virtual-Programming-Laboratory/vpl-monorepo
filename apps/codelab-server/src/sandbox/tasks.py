@@ -48,7 +48,7 @@ async def build_language_image_task(
 
 @broker.task(
     task_name='cleanup_handing_builds_tasks',
-    schedule=[{"cron": "*/5 * * * *"}],  # Run every 5 minutes
+    schedule=[{"cron": "*/2 * * * *"}],  # Run every 2 minutes
     prevent_concurrency=True,
     concurrency_key=IMAGE_BUILD_TASK_CONCURRENCY_KEY,
 )
@@ -93,7 +93,7 @@ async def cleanup_handing_builds_tasks(
 
 @broker.task(
     task_name='execute_scheduled_build_actions_task',
-    schedule=[{"cron": "*/5 * * * *"}],  # Run every 5 minutes
+    schedule=[{"cron": "*/2 * * * *"}],  # Run every 2 minutes
 )
 async def execute_scheduled_build_actions_task(
     db_session: Annotated[Session, TaskiqDepends(require_db_session)]
