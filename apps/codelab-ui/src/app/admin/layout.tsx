@@ -12,6 +12,7 @@ import {
 } from "lucide-react"; // Import Menu and icon components
 import type React from "react";
 import { useState } from "react";
+import { adminPaths } from "../../paths";
 
 export default function DashboardLayout({
   children,
@@ -27,37 +28,37 @@ export default function DashboardLayout({
   const navItems = [
     {
       name: "Dashboard",
-      href: "/admin_dashboard",
+      href: adminPaths.dashboard(),
       icon: LayoutDashboard,
     },
     {
       name: "All sessions",
-      href: "/admin_dashboard/sessions",
+      href: adminPaths.sessions(),
       icon: Monitor,
     },
     {
       name: "Language Images",
-      href: "/admin_dashboard/language-images",
+      href: adminPaths.runtimes(),
       icon: Monitor,
     },
     {
       name: "System Monitor",
-      href: "/admin_dashboard/system-monitor",
+      href: adminPaths.systemMonitor(),
       icon: Activity,
     },
     {
       name: "All students",
-      href: "/admin_dashboard/students",
+      href: adminPaths.students(),
       icon: Users,
     },
     {
       name: "Profile",
-      href: "/admin_dashboard/profile",
+      href: adminPaths.profile(),
       icon: User,
     },
     {
       name: "Settings",
-      href: "/admin_dashboard/settings",
+      href: adminPaths.settings(),
       icon: Settings,
     },
   ];

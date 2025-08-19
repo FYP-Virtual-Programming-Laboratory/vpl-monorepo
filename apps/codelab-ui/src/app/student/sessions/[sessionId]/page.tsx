@@ -12,6 +12,7 @@ import { Award, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { studentPaths } from "../../../../paths";
 
 // Mock session data with updated structure
 const sessionData: Record<string, any> = {
@@ -1173,7 +1174,7 @@ export default function SessionDetailPage() {
               </div>
               <div className="flex gap-2">
                 <Link
-                  href={`/student_dashboard/session/${sessionId}/grading?email=${encodeURIComponent(email)}`}
+                  href={`${studentPaths.sessionGrades(sessionId)}?email=${encodeURIComponent(email)}`}
                 >
                   <Button size="sm" className="bg-green-600 hover:bg-green-700">
                     <Award className="h-4 w-4 mr-2" />

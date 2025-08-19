@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { MoreVertical, Users } from "lucide-react";
 import Link from "next/link";
+import { adminPaths } from "../../../paths";
 
 interface SessionCardProps {
   id?: string;
@@ -44,7 +45,6 @@ export function SessionCard({
   progress,
   completedDate,
   averageScore,
-  isAdmin = false,
 }: SessionCardProps) {
   const statusColors = {
     ONGOING: "bg-amber-100 text-amber-700",
@@ -75,13 +75,9 @@ export function SessionCard({
   // Determine the link URL based on session status and user role
   const getLinkUrl = () => {
     if (status === "COMPLETED") {
-      return isAdmin
-        ? `/admin_dashboard/sessions/${id}/grading`
-        : `/student_dashboard/session/${id}/grading`;
+      return adminPaths.sessionGradings(id);
     }
-    return isAdmin
-      ? `/admin_dashboard/sessions/${id}`
-      : `/student_dashboard/session/${id}`;
+    return adminPaths.sessionDetails(id);
   };
 
   return (

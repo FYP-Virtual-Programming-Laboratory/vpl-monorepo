@@ -1,79 +1,100 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Code, Users, UserCheck, Eye, EyeOff } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Code, Eye, EyeOff, UserCheck, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function LandingContent() {
-  const [showAdminLogin, setShowAdminLogin] = useState(false)
-  const [showStudentJoin, setShowStudentJoin] = useState(false)
-  const [showStudentLogin, setShowStudentLogin] = useState(false)
-  const [matricNumber, setMatricNumber] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const router = useRouter()
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showStudentJoin, setShowStudentJoin] = useState(false);
+  const [showStudentLogin, setShowStudentLogin] = useState(false);
+  const [matricNumber, setMatricNumber] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const router = useRouter();
 
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
-  const [email, setEmail] = useState("")
-  const [isCheckingStudent, setIsCheckingStudent] = useState(false)
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [isCheckingStudent, setIsCheckingStudent] = useState(false);
 
   const handleAdminLogin = () => {
     // In a real app, you would validate credentials here
-    setShowAdminLogin(false)
-    router.push("/admin_dashboard")
-  }
+    setShowAdminLogin(false);
+    router.push("/admin_dashboard");
+  };
 
   const handleStudentLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!matricNumber || !password) {
       alert("Please enter your matric number and password to login.");
       return;
     }
 
-    setIsCheckingStudent(true)
+    setIsCheckingStudent(true);
     // Simulate API call to validate student login
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    setIsCheckingStudent(false)
-    setShowStudentLogin(false)
-    router.push(`/student_dashboard/sessions?matricNo=${encodeURIComponent(matricNumber)}`)
-  }
+    setIsCheckingStudent(false);
+    setShowStudentLogin(false);
+    router.push(
+      `/student_dashboard/sessions?matricNo=${encodeURIComponent(matricNumber)}`
+    );
+  };
 
   const handleStudentJoin = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!matricNumber || !firstName || !lastName || !email || !password || !confirmPassword) {
+    if (
+      !matricNumber ||
+      !firstName ||
+      !lastName ||
+      !email ||
+      !password ||
+      !confirmPassword
+    ) {
       alert("Please fill in all registration fields.");
       return;
     }
 
     if (password !== confirmPassword) {
-      alert("Passwords do not match!")
-      return
+      alert("Passwords do not match!");
+      return;
     }
 
-    setIsCheckingStudent(true)
+    setIsCheckingStudent(true);
     // Simulate API call to register student
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Mock registration - in a real app, you would create the student account here
-    console.log("Registering student:", { matricNumber, firstName, lastName, email })
-    setIsCheckingStudent(false)
+    console.log("Registering student:", {
+      matricNumber,
+      firstName,
+      lastName,
+      email,
+    });
+    setIsCheckingStudent(false);
 
-    setShowStudentJoin(false)
-    router.push(`/student_dashboard/sessions?matricNo=${encodeURIComponent(matricNumber)}`)
-  }
+    setShowStudentJoin(false);
+    router.push(
+      `/student_dashboard/sessions?matricNo=${encodeURIComponent(matricNumber)}`
+    );
+  };
 
   return (
     <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
@@ -87,8 +108,8 @@ export function LandingContent() {
             Welcome to <span className="text-emerald-200">CodeLab</span>
           </h1>
           <p className="text-xl text-white/90 max-w-2xl mx-auto leading-relaxed">
-            Your collaborative coding environment for managing sessions, tracking progress, and building amazing
-            projects together.
+            Your collaborative coding environment for managing sessions,
+            tracking progress, and building amazing projects together.
           </p>
         </div>
 
@@ -120,9 +141,12 @@ export function LandingContent() {
               <div className="w-12 h-12 bg-emerald-400 rounded-lg flex items-center justify-center mx-auto mb-4">
                 <Code className="h-6 w-6 text-emerald-900" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Collaborative Coding</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Collaborative Coding
+              </h3>
               <p className="text-white/80 text-sm">
-                Work together on coding projects with real-time collaboration and feedback.
+                Work together on coding projects with real-time collaboration
+                and feedback.
               </p>
             </CardContent>
           </Card>
@@ -134,7 +158,8 @@ export function LandingContent() {
               </div>
               <h3 className="text-lg font-semibold mb-2">Session Management</h3>
               <p className="text-white/80 text-sm">
-                Create and manage coding sessions with easy student enrollment and tracking.
+                Create and manage coding sessions with easy student enrollment
+                and tracking.
               </p>
             </CardContent>
           </Card>
@@ -146,7 +171,8 @@ export function LandingContent() {
               </div>
               <h3 className="text-lg font-semibold mb-2">Progress Tracking</h3>
               <p className="text-white/80 text-sm">
-                Monitor student progress and provide personalized feedback and guidance.
+                Monitor student progress and provide personalized feedback and
+                guidance.
               </p>
             </CardContent>
           </Card>
@@ -157,22 +183,35 @@ export function LandingContent() {
       <Dialog open={showAdminLogin} onOpenChange={setShowAdminLogin}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center text-2xl font-bold text-emerald-800">Admin Login</DialogTitle>
+            <DialogTitle className="text-center text-2xl font-bold text-emerald-800">
+              Admin Login
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label htmlFor="admin-email">Email</Label>
-              <Input id="admin-email" type="email" placeholder="admin@codelab.com" />
+              <Input
+                id="admin-email"
+                type="email"
+                placeholder="admin@codelab.com"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="admin-password">Password</Label>
-              <Input id="admin-password" type="password" placeholder="••••••••" />
+              <Input
+                id="admin-password"
+                type="password"
+                placeholder="••••••••"
+              />
             </div>
-            <Button onClick={handleAdminLogin} className="w-full bg-emerald-800 hover:bg-emerald-700 text-white mt-6">
+            <Button
+              onClick={handleAdminLogin}
+              className="w-full bg-emerald-800 hover:bg-emerald-700 text-white mt-6"
+            >
               Login to Dashboard
             </Button>
             <p className="text-center text-sm text-gray-600">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <a href="#" className="text-emerald-600 hover:underline">
                 Contact your administrator
               </a>
@@ -185,22 +224,24 @@ export function LandingContent() {
       <Dialog
         open={showStudentJoin}
         onOpenChange={(open) => {
-          setShowStudentJoin(open)
+          setShowStudentJoin(open);
           if (!open) {
             // Reset form when dialog closes
-            setMatricNumber("")
-            setFirstName("")
-            setLastName("")
-            setEmail("")
-            setPassword("")
-            setConfirmPassword("")
-            setIsCheckingStudent(false)
+            setMatricNumber("");
+            setFirstName("");
+            setLastName("");
+            setEmail("");
+            setPassword("");
+            setConfirmPassword("");
+            setIsCheckingStudent(false);
           }
         }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center text-2xl font-bold text-emerald-800">Student Registration</DialogTitle>
+            <DialogTitle className="text-center text-2xl font-bold text-emerald-800">
+              Student Registration
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleStudentJoin} className="space-y-4 pt-4">
             <div className="space-y-2">
@@ -320,9 +361,9 @@ export function LandingContent() {
               <a
                 href="#"
                 onClick={(e) => {
-                  e.preventDefault()
-                  setShowStudentJoin(false)
-                  setShowStudentLogin(true)
+                  e.preventDefault();
+                  setShowStudentJoin(false);
+                  setShowStudentLogin(true);
                 }}
                 className="text-emerald-600 hover:underline"
               >
@@ -337,18 +378,20 @@ export function LandingContent() {
       <Dialog
         open={showStudentLogin}
         onOpenChange={(open) => {
-          setShowStudentLogin(open)
+          setShowStudentLogin(open);
           if (!open) {
             // Reset form when dialog closes
-            setMatricNumber("")
-            setPassword("")
-            setIsCheckingStudent(false)
+            setMatricNumber("");
+            setPassword("");
+            setIsCheckingStudent(false);
           }
         }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center text-2xl font-bold text-emerald-800">Student Login</DialogTitle>
+            <DialogTitle className="text-center text-2xl font-bold text-emerald-800">
+              Student Login
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleStudentLogin} className="space-y-4 pt-4">
             <div className="space-y-2">
@@ -387,9 +430,9 @@ export function LandingContent() {
               <a
                 href="#"
                 onClick={(e) => {
-                  e.preventDefault()
-                  setShowStudentLogin(false)
-                  setShowStudentJoin(true)
+                  e.preventDefault();
+                  setShowStudentLogin(false);
+                  setShowStudentJoin(true);
                 }}
                 className="text-emerald-600 hover:underline"
               >
@@ -400,5 +443,5 @@ export function LandingContent() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

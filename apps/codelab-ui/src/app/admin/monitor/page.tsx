@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Users,
 } from "lucide-react";
+import { adminPaths } from "../../../paths";
 
 // Dummy data for demonstration
 const cpuUsage = 75;
@@ -52,10 +53,10 @@ export default function SystemMonitorPage() {
         <Header
           title="System Monitor"
           breadcrumbs={[
-            { label: "Dashboard", href: "/admin_dashboard" },
+            { label: "Dashboard", href: adminPaths.dashboard() },
             {
               label: "System Monitor",
-              href: "/admin_dashboard/system-monitor",
+              href: adminPaths.systemMonitor(),
             },
           ]}
         />

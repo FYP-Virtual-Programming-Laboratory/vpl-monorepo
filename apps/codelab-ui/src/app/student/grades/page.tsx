@@ -6,6 +6,7 @@ import { Award, Calendar, CheckCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { studentPaths } from "../../../paths";
 
 const completedSessions = [
   {
@@ -191,7 +192,7 @@ export default function StudentGradesPage() {
                 </div>
               </div>
               <div className="p-6 pt-0">
-                <Link href={`/student_dashboard/sessions/${session.id}/grades`}>
+                <Link href={studentPaths.sessionGrades(session.id)}>
                   <Button
                     variant="outline"
                     className="w-full border-blue-500 text-blue-600 hover:bg-blue-100 text-base font-medium py-2"

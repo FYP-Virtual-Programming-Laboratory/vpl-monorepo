@@ -18,6 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
+import { adminPaths } from "../../../../../paths";
 
 export default function AdminGradingDashboard({
   params,
@@ -212,9 +213,9 @@ export default function AdminGradingDashboard({
               Session Not Found
             </h2>
             <p className="text-gray-600 mb-4">
-              The session you're looking for doesn't exist.
+              The session you&apos;re looking for doesn&apos;t exist.
             </p>
-            <Link href="/sessions">
+            <Link href={adminPaths.sessions()}>
               <Button>Back to Sessions</Button>
             </Link>
           </div>

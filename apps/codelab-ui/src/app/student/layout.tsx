@@ -1,16 +1,10 @@
 "use client";
 
 import { Sidebar } from "@/components/layout/sidebar";
-import {
-  BookOpen,
-  GraduationCap,
-  LayoutDashboard,
-  Menu,
-  Settings,
-  User,
-} from "lucide-react"; // Import Menu and icon components
+import { BookOpen, GraduationCap, Menu, Settings, User } from "lucide-react"; // Import Menu and icon components
 import type React from "react";
 import { useState } from "react";
+import { studentPaths } from "../../paths";
 
 export default function DashboardLayout({
   children,
@@ -25,28 +19,23 @@ export default function DashboardLayout({
 
   const navItems = [
     {
-      name: "Dashboard",
-      href: `/student_dashboard`,
-      icon: LayoutDashboard,
-    },
-    {
       name: "Available Sessions",
-      href: `/student_dashboard/sessions`,
+      href: studentPaths.sessions(),
       icon: BookOpen,
     },
     {
       name: "My Grades",
-      href: `/student_dashboard/grades`,
+      href: studentPaths.grades(),
       icon: GraduationCap,
     },
     {
       name: "Profile",
-      href: `/student_dashboard/profile`,
+      href: studentPaths.profile(),
       icon: User,
     },
     {
       name: "Settings",
-      href: `/student_dashboard/settings`,
+      href: studentPaths.settings(),
       icon: Settings,
     },
   ];

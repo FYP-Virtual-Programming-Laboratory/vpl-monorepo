@@ -1,6 +1,7 @@
 import { IndividualGradingContent } from "@/components/admin/sessions/grading/individual-grading-content";
 import { Header } from "@/components/layout/header";
 import { notFound } from "next/navigation";
+import { adminPaths } from "../../../../../../paths";
 
 interface IndividualGradingPageProps {
   params: {
@@ -2408,9 +2409,12 @@ export default function IndividualGradingPage({
         title="Student Submission Review"
         description="Review and grade individual student submission"
         breadcrumbs={[
-          { label: "Sessions", href: "/sessions" },
-          { label: `Session ${params.id}`, href: `/sessions/${params.id}` },
-          { label: "Grading", href: `/sessions/${params.id}/grading` },
+          { label: "Sessions", href: adminPaths.sessions() },
+          {
+            label: `Session ${params.id}`,
+            href: adminPaths.sessionDetails(params.id),
+          },
+          { label: "Grading", href: adminPaths.sessionGradings(params.id) },
           { label: gradingData.student.name, href: "#" },
         ]}
       />

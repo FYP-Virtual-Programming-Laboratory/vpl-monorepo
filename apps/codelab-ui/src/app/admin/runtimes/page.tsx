@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Clock, Edit, Eye, RotateCcw, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { adminPaths } from "../../../paths";
 
 interface LanguageImage {
   id: string;
@@ -126,7 +127,7 @@ export default function LanguageImagesPage() {
 
   const getActionButtons = (image: LanguageImage) => {
     const buttons = [
-      <Link key="view" href={`/language-images/${image.id}`}>
+      <Link key="view" href={adminPaths.runtimeDetails(image.id)}>
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
           <Eye className="h-4 w-4" />
         </Button>

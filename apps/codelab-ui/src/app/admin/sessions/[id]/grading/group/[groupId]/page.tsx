@@ -1,6 +1,7 @@
 import { GroupGradingContent } from "@/components/admin/sessions/grading/group/group-grading-content";
 import { Header } from "@/components/layout/header";
 import { notFound } from "next/navigation";
+import { adminPaths } from "../../../../../../../paths";
 
 interface GroupGradingPageProps {
   params: {
@@ -115,9 +116,12 @@ export default function GroupGradingPage({ params }: GroupGradingPageProps) {
         title="Group Submission Review"
         description="Review and grade group submissions"
         breadcrumbs={[
-          { label: "Sessions", href: "/sessions" },
-          { label: `Session ${params.id}`, href: `/sessions/${params.id}` },
-          { label: "Grading", href: `/sessions/${params.id}` },
+          { label: "Sessions", href: adminPaths.sessions() },
+          {
+            label: `Session ${params.id}`,
+            href: adminPaths.sessionDetails(params.id),
+          },
+          { label: "Grading", href: adminPaths.sessionGradings(params.id) },
           { label: gradingData.group.name, href: "#" },
         ]}
       />

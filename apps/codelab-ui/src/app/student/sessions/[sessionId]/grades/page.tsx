@@ -1,12 +1,10 @@
 "use client";
 
-import { StudentLayout } from "@/components/student/student-layout";
-import { StudentPageHeader } from "@/components/student/student-page-header";
+import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  ArrowLeft,
   Award,
   CheckCircle,
   Clock,
@@ -130,36 +128,15 @@ export default function StudentGradingPage() {
     }
   };
 
-  const pageHeader = (
-    <StudentPageHeader
-      title="Grading Results"
-      description={`${mockGradingData.session.title} - ${mockGradingData.session.courseCode}`}
-      userEmail={email}
-      showUserInfo={true}
-    />
-  );
-
   return (
-    <StudentLayout
-      studentEmail={email}
-      studentName={studentName}
-      pageSpecificHeader={pageHeader}
-    >
+    <>
+      <Header
+        title="Grading Results"
+        description={`${mockGradingData.session.title} - ${mockGradingData.session.courseCode}`}
+      />
       <div className="container mx-auto px-4 py-6">
-        {/* Back Navigation */}
-        <div className="mb-6">
-          <Link
-            href={`/student_dashboard/session/${sessionId}?email=${encodeURIComponent(email)}`}
-          >
-            <Button variant="ghost" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Session
-            </Button>
-          </Link>
-        </div>
-
         {/* Overall Results Card */}
-        <Card className="mb-6">
+        <Card className="mb-6 h-fit">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Award className="h-5 w-5 text-blue-600" />
@@ -239,11 +216,9 @@ export default function StudentGradingPage() {
                       </span>
                     </div>
                   </div>
-                  <Link
-                    href={`/student_dashboard/session/${sessionId}/solution/${question.id}?email=${encodeURIComponent(email)}`}
-                  >
+                  <Link href="#">
                     <Button variant="outline" size="sm">
-                      View Solution
+                      View Submission
                     </Button>
                   </Link>
                 </div>
@@ -251,23 +226,7 @@ export default function StudentGradingPage() {
             </Card>
           ))}
         </div>
-
-        {/* Actions */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-4">
-          <Link
-            href={`/student_dashboard/grades?email=${encodeURIComponent(email)}`}
-          >
-            <Button variant="outline" className="w-full sm:w-auto">
-              View All Grades
-            </Button>
-          </Link>
-          <Link
-            href={`/student_dashboard/sessions?email=${encodeURIComponent(email)}`}
-          >
-            <Button className="w-full sm:w-auto">Back to Sessions</Button>
-          </Link>
-        </div>
       </div>
-    </StudentLayout>
+    </>
   );
 }
