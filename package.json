@@ -16,7 +16,8 @@
   },
   "pnpm": {
     "overrides": {
-      "@microsoft/api-extractor>typescript": "$typescript"
+      "@microsoft/api-extractor>typescript": "$typescript",
+      "@swc/helpers": "^0.5.15"
     }
   },
   "packageManager": "pnpm@9.0.0",
