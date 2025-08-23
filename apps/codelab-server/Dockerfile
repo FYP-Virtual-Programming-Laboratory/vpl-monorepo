@@ -50,13 +50,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 ENV PYTHONPATH=/codelab
 
+
 COPY ./scripts /codelab/scripts
-
 COPY ./pyproject.toml ./uv.lock ./alembic.ini /codelab/
-
 COPY ./src /codelab/src
-
 COPY ./entrypoints/ /codelab/entrypoints/
+COPY ./supervisord/ /codelab/supervisord/
 
 
 # Sync the project
@@ -64,5 +63,5 @@ COPY ./entrypoints/ /codelab/entrypoints/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync
 
-
+    
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

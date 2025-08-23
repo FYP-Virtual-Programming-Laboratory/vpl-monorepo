@@ -1,8 +1,8 @@
 """First migration
 
-Revision ID: e72d0029bde0
+Revision ID: 95a3116b007b
 Revises: 
-Create Date: 2025-08-18 15:20:19.747739
+Create Date: 2025-08-23 14:43:36.470926
 
 """
 from alembic import op
@@ -11,7 +11,7 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = 'e72d0029bde0'
+revision = '95a3116b007b'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -35,22 +35,18 @@ def upgrade():
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_admin_email'), 'admin', ['email'], unique=True)
-    op.create_table('workertask',
+    op.create_table('worker',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.Column('updated_at', sa.TIMESTAMP(), nullable=True),
-    sa.Column('task_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('task_name', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('labels', sa.JSON(), nullable=True),
+    sa.Column('name', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('status', sa.Text(), nullable=True),
-    sa.Column('completed_at', sa.DateTime(), nullable=True),
-    sa.Column('cancellation_reason', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    sa.Column('prevent_concurrency', sa.Boolean(), nullable=False),
-    sa.Column('concurrency_key', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    sa.Column('competing_task_id', sa.Uuid(), nullable=True),
-    sa.ForeignKeyConstraint(['competing_task_id'], ['workertask.id'], ),
+    sa.Column('is_default', sa.Boolean(), nullable=False),
+    sa.Column('no_of_threads', sa.Integer(), nullable=False),
+    sa.Column('pid', sa.Integer(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_worker_name'), 'worker', ['name'], unique=True)
     op.create_table('languageimage',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
@@ -78,6 +74,24 @@ def upgrade():
     sa.Column('image_size', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('image_architecture', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.ForeignKeyConstraint(['created_by_id'], ['admin.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('workertask',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.Column('updated_at', sa.TIMESTAMP(), nullable=True),
+    sa.Column('task_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('task_name', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('worker_id', sa.Uuid(), nullable=True),
+    sa.Column('labels', sa.JSON(), nullable=True),
+    sa.Column('status', sa.Text(), nullable=True),
+    sa.Column('completed_at', sa.DateTime(), nullable=True),
+    sa.Column('cancellation_reason', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('prevent_concurrency', sa.Boolean(), nullable=False),
+    sa.Column('concurrency_key', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('competing_task_id', sa.Uuid(), nullable=True),
+    sa.ForeignKeyConstraint(['competing_task_id'], ['workertask.id'], ),
+    sa.ForeignKeyConstraint(['worker_id'], ['worker.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('session',
@@ -292,8 +306,10 @@ def downgrade():
     op.drop_table('exercise')
     op.drop_index(op.f('ix_session_invitation_id'), table_name='session')
     op.drop_table('session')
-    op.drop_table('languageimage')
     op.drop_table('workertask')
+    op.drop_table('languageimage')
+    op.drop_index(op.f('ix_worker_name'), table_name='worker')
+    op.drop_table('worker')
     op.drop_index(op.f('ix_admin_email'), table_name='admin')
     op.drop_table('admin')
     # ### end Alembic commands ###

@@ -26,6 +26,7 @@ services:
       - ./database:/codelab/database
       - ./logs:/codelab/logs
       - ./sandbox_filesystem:/codelab/sandbox_filesystem
+      - ./supervisord:/codelab/supervisord
     env_file:
       - .env
     environment: &common_env
@@ -39,10 +40,8 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
       - SENTRY_DSN=${SENTRY_DSN}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-      - CELERY_DEFAULT_QUEUE=${CELERY_DEFAULT_QUEUE?Variable not set}
-      - CELERY_EXECUTION_QUEUE=${CELERY_EXECUTION_QUEUE?Variable not set}
+      - WORKER_BROKER_URL=${WORKER_BROKER_URL}
+      - WORKER_RESULT_BACKEND=${WORKER_RESULT_BACKEND}
       - EXTERNAL_API_KEY=${EXTERNAL_API_KEY}
 
     healthcheck:
@@ -55,7 +54,7 @@ services:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
     build:
       context: .
-    command: bash ./scripts/prestart.sh
+    command: bash ./entrypoints/prestart.sh
     depends_on:
       redis:
         condition: service_healthy
@@ -64,21 +63,14 @@ services:
     env_file:
       - .env
 
-  taskiq-worker:
+  sandbox:
     <<: *server
     ports: []
     healthcheck:
       disable: true
-    entrypoint: ["/bin/bash", "-c", "./entrypoints/worker.sh"]
+    entrypoint: ["/bin/bash", "-c", "./entrypoints/sandbox.sh"]
     runtime: sysbox-runc
     shm_size: '2gb'
     # privileged: true
     # security_opt:
     #   - seccomp:unconfined
-
-  taskiq-scheduler:
-    <<: *server
-    ports: []
-    healthcheck:
-      disable: true
-    entrypoint: ["/bin/bash", "-c", "./entrypoints/scheduler.sh"]
