@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 
+from src.core.config import settings
 from pydantic import EmailStr, JsonValue, PositiveFloat, PositiveInt
 from sqlmodel import (
     JSON,
@@ -10,6 +11,7 @@ from sqlmodel import (
     Relationship,
     SQLModel,
     UniqueConstraint,
+    CheckConstraint,
     func,
     Text,
 )
@@ -22,6 +24,7 @@ from src.schemas import (
     SessionInitializationStage,
     TaskStatus,
     SessionStatus,
+    WorkerStatus,
     WorkerTaskStatus,
 )
 
@@ -45,11 +48,37 @@ class BaseModel(SQLModel):
     )
 
 
+class Worker(BaseModel, table=True):
+    """This model represents a taskIQ worker in the system."""
+
+    name: str = Field(index=True, description="The name of the worker.", unique=True)
+    status: WorkerStatus = Field(default=WorkerStatus.offline, sa_column=Column(type_=Text()))
+    is_default: bool = Field(default=False, description="Whether this worker is the default worker.")
+    no_of_threads: int = Field(default=1, description="The number of threads for the worker.")
+    pid: int | None = Field(default=None, description="The process ID of the worker.")
+
+    @property
+    def process_name(self) -> str:
+        """Returns supervisord process name."""
+        return f'{settings.DEFAULT_WORKER_GROUP_NAME}:{self.name}'
+
+    class Config:
+        table_args = (
+            CheckConstraint(
+                name="uq_worker_is_default",
+                sqltext="is_default=1",
+            )
+        )
+
+
 class WorkerTask(BaseModel, table=True):
     """This model represents a task IQ task."""
 
     task_id: str
     task_name: str
+    worker_id: uuid.UUID | None = Field(foreign_key="worker.id", nullable=True)
+    worker: Worker = Relationship(sa_relationship_kwargs={"lazy": "select"})
+
     labels: JsonValue | None = Field(default=None, sa_column=Column(JSON))
     status: WorkerTaskStatus = Field(default=WorkerTaskStatus.started, sa_column=Column(type_=Text()))
     completed_at: datetime | None = Field(default=None)

@@ -1,26 +1,18 @@
-from datetime import datetime, timedelta
-from typing import Annotated
 from uuid import UUID
-
-from docker.errors import DockerException
-from docker.models.containers import Container
-from sqlmodel import Session, col, select
-
-from src.core.config import settings
-from src.core.db import engine
-from src.core.docker import get_shared_docker_client
-from src.external.exceptions import PullRepositoryException
 from src.log import logger
+from typing import Annotated
+from taskiq import TaskiqDepends
+from datetime import datetime, timedelta
+from sqlmodel import Session, col, select
+from src.schemas import ImageStatus, TaskStatus
+from src.sandbox.schemas import ExecutionLogSchema
+from src.sandbox.ochestator.image import ImageBuilder
+from src.worker import broker, require_taskiq_db_session
+from src.external.utils import pull_excercise_repository
+from src.external.exceptions import PullRepositoryException
 from src.models import ExerciseSubmission, LanguageImage, Task
 from src.sandbox.constants import IMAGE_BUILD_TASK_CONCURRENCY_KEY
 from src.sandbox.manager import ExecutionFailedError, ResourceManager
-from src.sandbox.ochestator.image import ImageBuilder
-from src.sandbox.schemas import ExecutionLogSchema
-from src.sandbox.types import CONTAINER_LABEL
-from src.schemas import ImageStatus, TaskStatus
-from src.external.utils import pull_excercise_repository
-from src.worker import broker, require_db_session
-from taskiq import TaskiqDepends
 
 
 @broker.task(
@@ -29,7 +21,7 @@ from taskiq import TaskiqDepends
     concurrency_key=IMAGE_BUILD_TASK_CONCURRENCY_KEY
 )
 async def build_language_image_task(
-    db_session: Annotated[Session, TaskiqDepends(require_db_session)],
+    db_session: Annotated[Session, TaskiqDepends(require_taskiq_db_session)],
     image_id: UUID,
 ) -> None:
     """Build a language image."""
@@ -53,7 +45,7 @@ async def build_language_image_task(
     concurrency_key=IMAGE_BUILD_TASK_CONCURRENCY_KEY,
 )
 async def cleanup_handing_builds_tasks(
-    db_session: Annotated[Session, TaskiqDepends(require_db_session)]
+    db_session: Annotated[Session, TaskiqDepends(require_taskiq_db_session)]
 ) -> None:
     """Mark all hanging language builds as failed."""
 
@@ -96,7 +88,7 @@ async def cleanup_handing_builds_tasks(
     schedule=[{"cron": "*/2 * * * *"}],  # Run every 2 minutes
 )
 async def execute_scheduled_build_actions_task(
-    db_session: Annotated[Session, TaskiqDepends(require_db_session)]
+    db_session: Annotated[Session, TaskiqDepends(require_taskiq_db_session)]
 ) -> None:
     """Execute scheduled build actions."""
 
@@ -161,7 +153,7 @@ def _update_execution_log(
 
 @broker.task(task_name="program_execution_queue")
 async def program_execution_queue(
-    db_session: Annotated[Session, TaskiqDepends(require_db_session)],
+    db_session: Annotated[Session, TaskiqDepends(require_taskiq_db_session)],
     task_id: UUID | None = None,
     submission_id: UUID | None = None,
 ) -> None:

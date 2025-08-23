@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 from src.core.config import settings
-from src.models import Admin, LanguageImage
-from src.schemas import ImageStatus
+from src.models import Admin, LanguageImage, Worker
+from src.schemas import ImageStatus, WorkerStatus
 from src.core.security import get_password_hash
 from src.sandbox.tasks import build_language_image_task
 from uuid import UUID
@@ -62,8 +62,29 @@ async def __create_language_image(db_session: Session) -> None:
         await build_language_image_task.kiq(image_id=language_image.id)
 
 
+async def __create_default_worker(db_session: Session) -> None:
+    """Create default worker if it does not exist."""
+    default_worker = db_session.exec(
+        select(Worker).where(
+            Worker.name == settings.DEFAULT_WORKER_NAME,
+            Worker.is_default == True,
+        )
+    ).first()
+
+    if not default_worker:
+        default_worker = Worker(
+            is_default=True,
+            no_of_threads=1,
+            status=WorkerStatus.online,
+            name=settings.DEFAULT_WORKER_NAME,
+        )
+        db_session.add(default_worker)
+        db_session.commit()
+
+
 async def create_fixtures(db_session: Session) -> None:
     """Create DB fixtures."""
 
     await __create_super_admin(db_session=db_session)
     await __create_language_image(db_session=db_session)
+    await __create_default_worker(db_session=db_session)

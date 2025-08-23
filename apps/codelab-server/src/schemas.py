@@ -4,6 +4,16 @@ from typing import Literal
 from pydantic import BaseModel, Field, PositiveFloat
 
 
+class WorkerStatus(StrEnum):
+    """Status of a worker in the system."""
+    adding = "adding"
+    removing = "removing"
+    restarting = "restarting"
+    online = "online"
+    offline = "offline"
+    unknown = "unknown"
+
+
 class WorkerTaskStatus(StrEnum):
     started = "started"
     in_progress = "in_progress"

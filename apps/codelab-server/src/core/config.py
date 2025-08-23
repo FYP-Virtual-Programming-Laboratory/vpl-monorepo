@@ -81,11 +81,26 @@ class Settings(BaseSettings):
         )
         return f"sqlite://{path}"
 
-    # Celery settings
-    CELERY_BROKER_URL: str = "redis://localhost:6379"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379"
-    CELERY_DEFAULT_QUEUE: str
-    CELERY_EXECUTION_QUEUE: str
+    # worker settings
+    WORKER_BROKER_URL: str = "redis://localhost:6379"
+    WORKER_RESULT_BACKEND: str = "redis://localhost:6379"
+    DEFAULT_WORKER_ID: str
+    DEFAULT_WORKER_NAME: str
+    DEFAULT_WORKER_GROUP_NAME: str
+    SUPERVISORD_CONFIG_PATH: str
+    SUPERVISORD_USERNAME: str
+    SUPERVISORD_PASSWORD: str
+    SUPERVISORD_HTTP_PORT: str
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def SUPERVISORD_CONFIG_URI(self) -> str:
+        return os.path.realpath(self.SUPERVISORD_CONFIG_PATH)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def SUPERVISORD_SOCKET_URI(self) -> str:
+        return f'http://{self.SUPERVISORD_USERNAME}:{self.SUPERVISORD_PASSWORD}@localhost:{self.SUPERVISORD_HTTP_PORT}/RPC2'
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
@@ -103,6 +118,8 @@ class Settings(BaseSettings):
         self._check_default_secret("SECRET_KEY", self.SECRET_KEY)
         self._check_default_secret("EXTERNAL_API_KEY", self.EXTERNAL_API_KEY)
         self._check_default_secret("VPL_API_KEY", self.VPL_API_KEY)
+        self._check_default_secret("SUPER_ADMIN_PASSWORD", self.SUPER_ADMIN_PASSWORD)
+        self._check_default_secret("SUPERVISORD_PASSWORD", self.SUPERVISORD_PASSWORD)
         return self
         
     @model_validator(mode="after")

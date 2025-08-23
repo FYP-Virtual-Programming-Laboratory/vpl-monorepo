@@ -17,3 +17,4 @@ app.egg-info
 htmlcov
 .cache
 .venv
+supervisord.pid
