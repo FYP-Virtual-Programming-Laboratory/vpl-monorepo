@@ -4,7 +4,6 @@ import { ExerciseHeader } from "@/components/student/sessions/exercise/execercis
 import { QuestionSummaryPanel } from "@/components/student/sessions/exercise/question-summary-panel";
 import { SolutionEditor } from "@/components/student/sessions/solution/solution-editor";
 import { SolutionSidebar } from "@/components/student/sessions/solution/solution-sidebar";
-import { StudentLayout } from "@/components/student/student-layout";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -471,18 +470,13 @@ export default function SolutionPage() {
   }
 
   return (
-    <StudentLayout
-      studentEmail={email}
-      studentName={studentName}
-      pageSpecificHeader={
-        <ExerciseHeader
-          session={session}
-          question={question}
-          userEmail={email}
-          sessionId={sessionId}
-        />
-      }
-    >
+    <>
+      <ExerciseHeader
+        session={session}
+        question={question}
+        userEmail={email}
+        sessionId={sessionId}
+      />
       <main className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left Panel - Question Summary */}
@@ -509,6 +503,6 @@ export default function SolutionPage() {
           </div>
         </div>
       </main>
-    </StudentLayout>
+    </>
   );
 }

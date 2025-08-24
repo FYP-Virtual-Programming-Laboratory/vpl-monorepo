@@ -1,6 +1,8 @@
 "use client";
 
 import "@/app/globals.css";
+import { AdminAuthProvider } from "@/components/admin/auth-provider";
+import { StudentAuthProvider } from "@/components/student/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import queryClient from "@/query-client";
@@ -23,8 +25,12 @@ export default function ClientLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <DynamicLayout>{children}</DynamicLayout>
-            <Toaster />
+            <AdminAuthProvider>
+              <StudentAuthProvider>
+                <DynamicLayout>{children}</DynamicLayout>
+                <Toaster />
+              </StudentAuthProvider>
+            </AdminAuthProvider>
           </ThemeProvider>
           <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>

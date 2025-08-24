@@ -1,4 +1,4 @@
-import { login } from "@/api/student/auth";
+import { login } from "@/api/admin/auth";
 import createAuthService from "@/components/create-auth-service";
 
 const { AuthProvider, useAuth } = createAuthService({
@@ -11,4 +11,4 @@ const { AuthProvider, useAuth } = createAuthService({
   },
 });
 
-export { AuthProvider, useAuth };
+export { AuthProvider as AdminAuthProvider, useAuth as useAdminAuth };

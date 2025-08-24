@@ -6,7 +6,6 @@ import { QuestionCard } from "@/components/student/sessions/question-card";
 import { SessionDetailHeader } from "@/components/student/sessions/session-detail-header";
 import { SessionInfoCard } from "@/components/student/sessions/session-info-card";
 import { TestCasesPanel } from "@/components/student/sessions/test-cases-panel";
-import { StudentLayout } from "@/components/student/student-layout";
 import { Button } from "@/components/ui/button";
 import { Award, CheckCircle } from "lucide-react";
 import Link from "next/link";
@@ -1134,22 +1133,18 @@ export default function SessionDetailPage() {
 
   if (!session) {
     return (
-      <StudentLayout studentEmail={email} studentName={studentName}>
-        <div className="p-4 text-center">
-          Session not found. Please check the session ID.
-        </div>
-      </StudentLayout>
+      <div className="p-4 text-center">
+        Session not found. Please check the session ID.
+      </div>
     );
   }
 
   const currentQuestion = session.questions[currentQuestionIndex];
   if (!currentQuestion) {
     return (
-      <StudentLayout studentEmail={email} studentName={studentName}>
-        <div className="p-4 text-center">
-          Question not found for this session.
-        </div>
-      </StudentLayout>
+      <div className="p-4 text-center">
+        Question not found for this session.
+      </div>
     );
   }
 
