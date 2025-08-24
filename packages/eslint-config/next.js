@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import useClientPlugin from "@naverpay/eslint-plugin-use-client";
 import pluginNext from "@next/eslint-plugin-next";
 import pluginQuery from "@tanstack/eslint-plugin-query";
 import eslintConfigPrettier from "eslint-config-prettier";
@@ -48,4 +49,14 @@ export const nextJsConfig = [
     },
   },
   ...pluginQuery.configs["flat/recommended"],
+  {
+    plugins: {
+      "use-client": useClientPlugin,
+    },
+    rules: {
+      "use-client/use-client-hook": "error",
+      "use-client/browser-api": "error",
+      "use-client/event-handler": "error",
+    },
+  },
 ];

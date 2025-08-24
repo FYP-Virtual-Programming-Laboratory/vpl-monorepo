@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
+    "@naverpay/eslint-plugin-use-client": "^0.0.2",
     "@next/eslint-plugin-next": "^15.4.2",
     "@tanstack/eslint-plugin-query": "^5.83.1",
     "eslint": "^9.31.0",
