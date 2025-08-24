@@ -27,6 +27,7 @@ function createAuthService<TUser>({
     error: Error | null;
     login: (username: string, password: string) => void;
     logout: () => void;
+    setAuthDetails: (token: string, user: TUser) => void;
   }>({
     user: null,
     token: null,
@@ -34,6 +35,7 @@ function createAuthService<TUser>({
     error: null,
     login: async () => {},
     logout: () => {},
+    setAuthDetails: () => {},
   });
 
   function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -82,8 +84,25 @@ function createAuthService<TUser>({
       localStorage.removeItem(AUTH_USER_KEY);
     }, []);
 
+    const setAuthDetails = useCallback((token: string, user: TUser) => {
+      setToken(token);
+      setUser(user);
+      localStorage.setItem(AUTH_TOKEN_KEY, token);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    }, []);
+
     return (
-      <AuthContext value={{ user, token, login, logout, isLoggingIn, error }}>
+      <AuthContext
+        value={{
+          user,
+          token,
+          login,
+          logout,
+          isLoggingIn,
+          error,
+          setAuthDetails,
+        }}
+      >
         {children}
       </AuthContext>
     );
