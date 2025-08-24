@@ -1,16 +1,20 @@
 "use client";
 
 import { Sidebar } from "@/components/layout/sidebar";
+import { useStudentAuth } from "@/components/student/auth-provider";
 import { BookOpen, GraduationCap, Menu, Settings, User } from "lucide-react"; // Import Menu and icon components
+import { useRouter } from "next/navigation";
 import type React from "react";
 import { useState } from "react";
-import { studentPaths } from "../../paths";
+import { home, studentPaths } from "../../paths";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user } = useStudentAuth();
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => {
@@ -39,6 +43,10 @@ export default function DashboardLayout({
       icon: Settings,
     },
   ];
+
+  if (!user) {
+    router.replace(home());
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">

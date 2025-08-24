@@ -1,5 +1,6 @@
 "use client";
 
+import { useAdminAuth } from "@/components/admin/auth-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import {
   Activity,
@@ -10,15 +11,18 @@ import {
   User,
   Users,
 } from "lucide-react"; // Import Menu and icon components
+import { useRouter } from "next/navigation";
 import type React from "react";
 import { useState } from "react";
-import { adminPaths } from "../../paths";
+import { adminPaths, home } from "../../paths";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user } = useAdminAuth();
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => {
@@ -62,6 +66,10 @@ export default function DashboardLayout({
       icon: Settings,
     },
   ];
+
+  if (!user) {
+    router.replace(home());
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
