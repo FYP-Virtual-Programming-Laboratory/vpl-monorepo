@@ -145,13 +145,13 @@ class LanguageImagePublicShcema(BaseModel):
 
 
 class CreateTaskExecutionSchema(BaseModel):
-    excercise_id: UUID
+    exercise_id: UUID
     entry_file_path: NewPath
 
 
-class CreateExcerciseExecutionSchema(BaseModel):
+class CreateExerciseExecutionSchema(BaseModel):
     group_id: UUID | None = None
-    excercise_id: UUID
+    exercise_id: UUID
     entry_file_path: NewPath
     
 

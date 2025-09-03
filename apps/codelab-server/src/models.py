@@ -2,7 +2,12 @@ import uuid
 from datetime import datetime
 
 from src.core.config import settings
-from pydantic import EmailStr, JsonValue, PositiveFloat, PositiveInt
+from pydantic import (
+    EmailStr, 
+    JsonValue, 
+    PositiveFloat, 
+    PositiveInt,
+)
 from sqlmodel import (
     JSON,
     TIMESTAMP,
@@ -56,11 +61,29 @@ class Worker(BaseModel, table=True):
     is_default: bool = Field(default=False, description="Whether this worker is the default worker.")
     no_of_threads: int = Field(default=1, description="The number of threads for the worker.")
     pid: int | None = Field(default=None, description="The process ID of the worker.")
+    tasks: list['WorkerTask'] = Relationship(back_populates="worker")
+    logs: str = Field(max_length=50_000, default='')
 
     @property
     def process_name(self) -> str:
         """Returns supervisord process name."""
-        return f'{settings.DEFAULT_WORKER_GROUP_NAME}:{self.name}'
+        return (
+            f'{settings.DEFAULT_WORKER_GROUP_NAME}:{self.name}'
+            if self.is_default is False else self.name
+        )
+    
+    def update_logs(self, value: str) -> None:
+        """Append and keep only the last 50,000 chars (drop oldest first)."""
+        MAX = 50_000
+        if not value:
+            return
+
+        if len(value) >= MAX:
+            self.logs = value[-MAX:]
+            return
+ 
+        keep = MAX - len(value)
+        self.logs = (self.logs or "")[-keep:] + value
 
     class Config:
         table_args = (
@@ -77,7 +100,10 @@ class WorkerTask(BaseModel, table=True):
     task_id: str
     task_name: str
     worker_id: uuid.UUID | None = Field(foreign_key="worker.id", nullable=True)
-    worker: Worker = Relationship(sa_relationship_kwargs={"lazy": "select"})
+    worker: Worker = Relationship(
+        back_populates="tasks",
+        sa_relationship_kwargs={"lazy": "select"},
+    )
 
     labels: JsonValue | None = Field(default=None, sa_column=Column(JSON))
     status: WorkerTaskStatus = Field(default=WorkerTaskStatus.started, sa_column=Column(type_=Text()))

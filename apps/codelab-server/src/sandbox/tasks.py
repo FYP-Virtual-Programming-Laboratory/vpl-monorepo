@@ -8,7 +8,7 @@ from src.schemas import ImageStatus, TaskStatus
 from src.sandbox.schemas import ExecutionLogSchema
 from src.sandbox.ochestator.image import ImageBuilder
 from src.worker import broker, require_taskiq_db_session
-from src.external.utils import pull_excercise_repository
+from src.external.utils import pull_exercise_repository
 from src.external.exceptions import PullRepositoryException
 from src.models import ExerciseSubmission, LanguageImage, Task
 from src.sandbox.constants import IMAGE_BUILD_TASK_CONCURRENCY_KEY
@@ -203,7 +203,7 @@ async def program_execution_queue(
             request=request,
             message='Pulling code repository.',
         )
-        code_repository = pull_excercise_repository(
+        code_repository = pull_exercise_repository(
             request.exercise_id, 
             request.exercise.session_id,
         )

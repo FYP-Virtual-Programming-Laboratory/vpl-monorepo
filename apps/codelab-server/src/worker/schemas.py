@@ -1,7 +1,15 @@
-from pydantic import BaseModel
+from typing_extensions import Literal
+from pydantic import (
+    BaseModel, 
+    ConfigDict, 
+    PositiveInt, 
+    StringConstraints,
+)
 from enum import IntEnum
 from datetime import datetime
-from src.schemas import WorkerStatus
+from uuid import UUID
+from typing import Annotated
+from src.schemas import WorkerStatus, WorkerTaskStatus
 
 
 class TaskIQWorkerState(IntEnum):
@@ -17,30 +25,20 @@ class TaskIQWorkerState(IntEnum):
     unknown = 1000     # The process state is unknown.
 
     @staticmethod
-    def get_worker_status(
-        process_state: 'TaskIQWorkerState', 
-        previous_status: WorkerStatus | None = None,
-    ) -> WorkerStatus:
+    def get_worker_status(process_state: 'TaskIQWorkerState') -> WorkerStatus:
         """Get the worker status from the process state."""
 
         status = WorkerStatus.unknown
-        if process_state == TaskIQWorkerState.stopped:
+        if process_state in [
+            TaskIQWorkerState.stopped,
+            TaskIQWorkerState.stopping,
+        ]:
             status = WorkerStatus.offline
-        elif process_state == TaskIQWorkerState.starting:
-            if previous_status and previous_status in [
-                WorkerStatus.offline, 
-                WorkerStatus.unknown,
-            ]:
-                status = WorkerStatus.restarting
-            else:
-                status = WorkerStatus.adding
-        elif process_state == TaskIQWorkerState.running:
+        elif process_state in [
+            TaskIQWorkerState.running,
+            TaskIQWorkerState.starting,
+        ]:
             status = WorkerStatus.online
-        elif process_state == TaskIQWorkerState.stopping:
-            if previous_status and previous_status == WorkerStatus.removing:
-                status = WorkerStatus.removing
-            else:
-                status = WorkerStatus.offline
         elif process_state in [
             TaskIQWorkerState.exited,
             TaskIQWorkerState.fatal,
@@ -60,3 +58,38 @@ class TaskIQWorkerDetails(BaseModel):
     stop_timestamp: datetime
     start_timestamp: datetime
     status: TaskIQWorkerState
+
+
+class TaskDetailsSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    worker_id: UUID
+    task_name: str
+    status: WorkerTaskStatus
+    created_at: datetime
+    completed_at: datetime | None = None
+    competing_task_id: str | None = None
+
+
+class WorkerDetailSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    logs: str
+    is_default: bool
+    no_of_threads: int
+    status: WorkerStatus
+    created_at: datetime
+    updated_at: datetime | None = None
+
+
+class CreateWorkerSchema(BaseModel):
+    name: Annotated[str, StringConstraints(min_length=3, max_length=50, strip_whitespace=True)]
+    no_of_threads: PositiveInt
+
+
+class UpdateWorkerSchema(BaseModel):
+    no_of_threads: PositiveInt | None = None
+    status: Literal['start', 'stop'] | None = None

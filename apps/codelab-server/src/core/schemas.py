@@ -1,4 +1,5 @@
 from enum import StrEnum
+from pydantic import BaseModel
 
 
 class APIErrorCodes(StrEnum):
@@ -48,9 +49,21 @@ class APIErrorCodes(StrEnum):
     TASK_ALREADY_IN_QUEUE = "task_already_in_queue"
     TASK_CANCELLATION_FAILED = "task_cancellation_failed"
 
+    # worker errors
+    DEFAULT_WORKER = "default_worker"
+
     # general object errors
     NOT_FOUND = "not_found"
     BAD_REQUEST = "bad_request"
+    SERVICE_ERROR = "service_error"
+
+
+class ErrorResponseSchema(BaseModel):
+    """Schema for error responses."""
+    error_code: APIErrorCodes
+    message: str
+
+    model_config = {"json_schema_extra": {"examples": [{"error_code": APIErrorCodes.BAD_REQUEST, "message": "An error occurred."}]}}
 
     
 

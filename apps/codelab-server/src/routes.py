@@ -8,11 +8,13 @@ from src.core.dependecies import require_db_session
 from src.sandbox.router import router as sandbox_routes
 from src.accounts.routes import router as accounts_router
 from src.session.routes import router as session_routes
+from src.worker.router import router as worker_router
 
 router = APIRouter()
 router.include_router(sandbox_routes, prefix="/sandbox", tags=["sandbox"])
 router.include_router(accounts_router, prefix="/accounts", tags=["accounts"])
 router.include_router(session_routes, prefix="/sessions", tags=["sessions"])
+router.include_router(worker_router, prefix="/workers", tags=["worker"])
 
 
 class HealthCheckResponse(BaseModel):

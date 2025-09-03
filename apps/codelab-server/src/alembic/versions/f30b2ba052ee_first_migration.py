@@ -1,8 +1,8 @@
 """First migration
 
-Revision ID: 95a3116b007b
+Revision ID: f30b2ba052ee
 Revises: 
-Create Date: 2025-08-23 14:43:36.470926
+Create Date: 2025-09-03 14:49:07.103153
 
 """
 from alembic import op
@@ -11,7 +11,7 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = '95a3116b007b'
+revision = 'f30b2ba052ee'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -44,6 +44,7 @@ def upgrade():
     sa.Column('is_default', sa.Boolean(), nullable=False),
     sa.Column('no_of_threads', sa.Integer(), nullable=False),
     sa.Column('pid', sa.Integer(), nullable=True),
+    sa.Column('logs', sqlmodel.sql.sqltypes.AutoString(length=50000), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_worker_name'), 'worker', ['name'], unique=True)

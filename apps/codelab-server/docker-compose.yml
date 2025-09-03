@@ -9,9 +9,12 @@ services:
       timeout: 5s
       retries: 5
 
-  server: &server
+  server:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
     restart: always
+    entrypoint: ["/bin/bash", "-c", "./entrypoints/sandbox.sh"]
+    runtime: sysbox-runc
+    shm_size: '2gb'
     build:
       context: .
     ports:
@@ -62,15 +65,3 @@ services:
     environment: *common_env
     env_file:
       - .env
-
-  sandbox:
-    <<: *server
-    ports: []
-    healthcheck:
-      disable: true
-    entrypoint: ["/bin/bash", "-c", "./entrypoints/sandbox.sh"]
-    runtime: sysbox-runc
-    shm_size: '2gb'
-    # privileged: true
-    # security_opt:
-    #   - seccomp:unconfined
