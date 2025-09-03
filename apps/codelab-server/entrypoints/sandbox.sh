@@ -7,5 +7,11 @@ openrc
 touch /run/openrc/softlevel
 service docker start
 
-exec supervisord -c ./supervisord/supervisord.conf
-tail -f ./supervisord/*.log
+# clean previous logs (idempotent)
+mkdir -p ./supervisord/logs
+rm -r ./supervisord/logs/* 2>/dev/null || true
+
+supervisord -c ./supervisord/supervisord.conf &
+chmod +rwx ./supervisord/logs/*.log 2>/dev/null || true
+sleep 4
+tail -F ./supervisord/logs/*.log

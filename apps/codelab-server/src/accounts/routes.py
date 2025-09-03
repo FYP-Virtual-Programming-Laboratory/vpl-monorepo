@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
+from fastapi import status
 
 from src.accounts.schemas import (
     AdminDashboardSchema,
@@ -9,6 +10,7 @@ from src.accounts.schemas import (
     AdminPublicSchema,
     StudentLoginResponseSchema,
 )
+from src.core.schemas import ErrorResponseSchema, APIErrorCodes
 from src.accounts.services import (
     create_admin_service,
     get_admin_dashboard_service,
@@ -31,6 +33,20 @@ router = APIRouter()
     response_model=AdminProfileSchema,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new admin",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Admin already exists",
+            "model": ErrorResponseSchema,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error_code": APIErrorCodes.BAD_REQUEST,
+                        "message": "Admin already exists."
+                    }
+                }
+            }
+        }
+    }
 )
 async def create_admin(
     admin: Annotated[Admin, Depends(create_admin_service)],
@@ -67,6 +83,20 @@ async def list_admin_profiles(
     "/admins/me",
     response_model=AdminProfileSchema,
     summary="Update admin profile",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Password is incorrect",
+            "model": ErrorResponseSchema,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error_code": APIErrorCodes.BAD_REQUEST,
+                        "message": "Password is incorrect."
+                    }
+                }
+            }
+        }
+    }
 )
 async def update_admin_profile(
     admin: Annotated[Admin, Depends(update_admin_profile_service)],
@@ -79,6 +109,20 @@ async def update_admin_profile(
     "/admins/{user_id}",
     response_model=AdminPublicSchema,
     summary="Get admin public profile",
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Admin not found",
+            "model": ErrorResponseSchema,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error_code": APIErrorCodes.NOT_FOUND,
+                        "message": "Admin not found."
+                    }
+                }
+            }
+        }
+    }
 )
 async def get_admin_public_profile(
     admin: Annotated[Admin, Depends(get_admin_public_profile_service)],
@@ -102,7 +146,21 @@ async def get_admin_dashboard(
 @router.post(
     '/admins/login',
     response_model=AdminLoginResponseSchema,
-    summary='Admin Login endpoint.'
+    summary='Admin Login endpoint.',
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Invalid credentials",
+            "model": ErrorResponseSchema,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error_code": APIErrorCodes.UNAUTHORIZED,
+                        "message": "Invalid credentials."
+                    }
+                }
+            }
+        }
+    }
 )
 async def admin_login(
     data: Annotated[tuple[Admin, str], Depends(admin_login_service)],
@@ -114,14 +172,28 @@ async def admin_login(
 @router.post(
     '/students',
     response_model=StudentLoginResponseSchema,
-    summary='Student Signup endpoint.'
+    summary='Student Signup endpoint.',
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Student with these credentials already exists",
+            "model": ErrorResponseSchema,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error_code": APIErrorCodes.BAD_REQUEST,
+                        "message": "Student with these credentials already exists."
+                    }
+                }
+            }
+        }
+    }
 )
 async def student_signup(
     data: Annotated[tuple[Student, str], Depends(student_signup_service)],
 ) -> StudentLoginResponseSchema:
     """Student Signup."""
     return StudentLoginResponseSchema.model_validate(
-        {'token': data[1], 'profile': data[0]}, 
+        {'token': data[1], 'profile': data[0]},
         from_attributes=True,
     )
 
@@ -130,6 +202,20 @@ async def student_signup(
     '/students/login',
     response_model=StudentLoginResponseSchema,
     summary='Student Login endpoint.',
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Invalid credentials",
+            "model": ErrorResponseSchema,
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error_code": APIErrorCodes.UNAUTHORIZED,
+                        "message": "Invalid credentials."
+                    }
+                }
+            }
+        }
+    }
 )
 async def student_login(
     data: Annotated[tuple[Student, str], Depends(student_login_service)],

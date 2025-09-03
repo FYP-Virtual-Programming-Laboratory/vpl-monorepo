@@ -1,5 +1,3 @@
-"""Task worker setup and broker configuration."""
-
 import taskiq_fastapi
 from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 from taskiq.schedule_sources import LabelScheduleSource
@@ -9,8 +7,9 @@ from .middleware import ConcurrencyMiddleware
 
 # Setup result backend and broker
 result_backend = RedisAsyncResultBackend(redis_url=settings.WORKER_BROKER_URL)
+
 broker = RedisStreamBroker(
-    url=settings.WORKER_BROKER_URL
+    url=settings.WORKER_BROKER_URL,
 ).with_result_backend(result_backend)
 broker.add_middlewares(ConcurrencyMiddleware())
 

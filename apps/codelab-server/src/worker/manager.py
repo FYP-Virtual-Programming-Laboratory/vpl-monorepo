@@ -1,8 +1,11 @@
 import re
+import subprocess
 from xmlrpc.client import ServerProxy
+from supervisor.xmlrpc import SystemNamespaceRPCInterface
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from sqlmodel import Session, select, col
+from sqlmodel import Session, select
 from src.core.config import settings
+from src.utils import atomic_transaction_block
 from src.models import Worker
 from src.schemas import WorkerStatus
 from src.log import logger
@@ -19,9 +22,9 @@ class WorkerManager:
     def __init__(self, db_session: Session) -> None:
         """Initialize the worker manager."""
         self.db_session = db_session
-        self.supervisord_client: SupervisorNamespaceRPCInterface = ServerProxy(
-            uri=settings.SUPERVISORD_SOCKET_URI,
-        ).supervisor
+        rpc_server = ServerProxy(uri=settings.SUPERVISORD_SOCKET_URI)
+        self.supervisord_system_client: SystemNamespaceRPCInterface = rpc_server.system
+        self.supervisord_client: SupervisorNamespaceRPCInterface = rpc_server.supervisor
 
     def _sync_worker_update(self) -> None:
         """Create new supervisord config for active workers."""
@@ -29,17 +32,12 @@ class WorkerManager:
         worker_configs = ""
         workers = self.db_session.exec(
             select(Worker).where(
-                col(Worker.status).in_([
-                    WorkerStatus.adding,
-                    WorkerStatus.online,
-                    WorkerStatus.restarting,
-                ]),
+                Worker.status == WorkerStatus.online,
                 Worker.is_default == False,
             )
         ).all()
 
-        # Ensure we re-add default worker
-        worker_names = [settings.DEFAULT_WORKER_NAME]
+        worker_names = []
         for worker in workers:
             worker_configs += WORKER_CONFIG_TEMPLATE.format(
                 worker_name=worker.name,
@@ -72,6 +70,24 @@ class WorkerManager:
 
             # Call supervisord to reload the configuration
             self.supervisord_client.reloadConfig()
+            # NOTE: for some reason running `reloadConfig()` in xml rpc does not reload supervisord
+            # so we're using supervisordctl group update command.
+
+            result = subprocess.run(
+                [
+                    'supervisorctl',
+                    '-c',
+                    '/codelab/supervisord/supervisord.conf',
+                    'update',
+                    settings.DEFAULT_WORKER_GROUP_NAME,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                raise RuntimeError(f"supervisorctl update failed: {result.stderr}")
 
         except Exception as error:
             logger.error(
@@ -84,7 +100,7 @@ class WorkerManager:
                 }
             )
 
-            # Restore config file
+            # Restore the config file to it's previous state
             with open(settings.SUPERVISORD_CONFIG_URI, 'w') as f:
                 f.write(previous_content)
 
@@ -94,10 +110,12 @@ class WorkerManager:
         """Stop a worker."""
 
         try:
-            self.supervisord_client.stopProcess(name=worker.process_name)
-            worker.status = WorkerStatus.offline
-            self.db_session.add(worker)
-            self.db_session.commit()
+            with atomic_transaction_block(db_session=self.db_session):
+                # mark worker as offline then sync config
+                worker.status = WorkerStatus.offline
+                self.db_session.add(worker)
+                self.db_session.commit()
+                self._sync_worker_update()
         except Exception as error:
             logger.error(
                 'src::manager::WorkerManager::stop_worker:: '
@@ -108,57 +126,44 @@ class WorkerManager:
                     'process_name': worker.process_name,
                 }
             )
-            raise RuntimeError(f"Failed to stop worker {worker.name}: {error}")
+            raise RuntimeError(f"Failed to stop worker {worker.process_name}: {error}")
 
     def start_worker(self, worker: Worker) -> None:
         """Start a worker."""
 
         try:
-            self.supervisord_client.startProcess(name=worker.process_name)
-            worker.status = WorkerStatus.online
-            self.db_session.add(worker)
-            self.db_session.commit()
+            with atomic_transaction_block(db_session=self.db_session):
+                worker.status = WorkerStatus.online
+                self.db_session.add(worker)
+                self.db_session.flush()
+                self._sync_worker_update()
+
+                # update worker PID and state
+                self.sync_worker_state_with_process_state(worker=worker)
         except Exception as error:
             logger.error(
                 'src::manager::WorkerManager::start_worker:: '
-                'Failed to start worker :: {worker_name} :: {error}',
+                f'Failed to start worker :: {worker.process_name} :: {error}',
                 exc_info=error,
                 extra={
                     'worker_id': str(worker.id),
                     'process_name': worker.process_name,
                 }
             )
-            raise RuntimeError(f"Failed to start worker {worker.name}: {error}")
-
-    def restart_worker(self, worker: Worker) -> None:
-        """Restart a worker."""
-
-        try:
-            self.supervisord_client.stopProcess(name=worker.process_name)
-            self.supervisord_client.startProcess(name=worker.process_name)
-            worker.status = WorkerStatus.online
-            self.db_session.add(worker)
-            self.db_session.commit()
-        except Exception as error:
-            logger.error(
-                'src::manager::WorkerManager::restart_worker:: '
-                'Failed to restart worker :: {worker_name} :: {error}',
-                exc_info=error,
-                extra={
-                    'worker_id': str(worker.id),
-                    'process_name': worker.process_name,
-                }
-            )
-            raise RuntimeError(f"Failed to restart worker {worker.name}: {error}")
+            raise RuntimeError(f"Failed to start worker {worker.process_name}: {error}")
 
     def add_worker(self, worker: Worker) -> None:
         """Add a new worker."""
 
         try:
-            self._sync_worker_update()
-            worker.status = WorkerStatus.offline
-            self.db_session.add(worker)
-            self.db_session.commit()
+            with atomic_transaction_block(db_session=self.db_session):
+                worker.status = WorkerStatus.online
+                self.db_session.add(worker)
+                self.db_session.flush()
+                self._sync_worker_update()
+
+                # update worker PID and state
+                self.sync_worker_state_with_process_state(worker=worker)
         except Exception as error:
             logger.error(
                 'src::manager::WorkerManager::add_worker:: '
@@ -169,25 +174,21 @@ class WorkerManager:
                     'process_name': worker.process_name,
                 }
             )
-            raise RuntimeError(f"Failed to add worker {worker.name}: {error}")
+            raise RuntimeError(f"Failed to add worker {worker.process_name}: {error}")
 
     def remove_worker(self, worker: Worker) -> None:
         """Remove a worker."""
 
         try:
-            # Stop the worker first if it's running
-            if worker.status == WorkerStatus.online:
-                self.stop_worker(worker)
-
-            self._sync_worker_update()
-            # Delete worker from database
-            self.db_session.delete(worker)
-            self.db_session.commit()
-
+            with atomic_transaction_block(db_session=self.db_session):
+                # Delete worker from database
+                self.db_session.delete(worker)
+                self.db_session.flush()
+                self._sync_worker_update()
         except Exception as error:
             logger.error(
                 'src::manager::WorkerManager::remove_worker:: '
-                'Failed to remove worker :: {worker_name} :: {error}',
+                f'Failed to remove worker :: {worker.process_name} :: {error}',
                 exc_info=error,
                 extra={
                     'worker_id': str(worker.id),
@@ -196,7 +197,7 @@ class WorkerManager:
             )
             raise RuntimeError(f"Failed to remove worker {worker.name}: {error}")
 
-    def sync_worker_state_with_process_state(self, worker: Worker | None = None) -> None:
+    def sync_worker_state_with_process_state(self, worker: Worker | None = None, commit: bool = True) -> None:
         """Sync db worker states with process states."""
 
         workers = (
@@ -204,16 +205,61 @@ class WorkerManager:
             if worker is None else [worker]
         )
 
-        for worker in workers:
-            details = self.get_worker_details(worker)
-            if details is not None:
-                worker.pid = details.pid
-                worker.status = TaskIQWorkerState.get_worker_status(
-                    process_state=details.status,
-                    previous_status=worker.status,
+        # force commit if worker was not supplied
+        commit = True if worker is None else commit
+
+        calls =  [
+            {
+                'methodName': 'supervisor.getProcessInfo',
+                'params': [worker.process_name]
+            }
+            for worker in workers
+        ]
+
+        results = self.supervisord_system_client.multicall(calls)
+        workers_to_update = []
+
+        for index, result in enumerate(results):              
+            worker = workers[index]
+
+            if isinstance(result, dict):
+                logger.debug(
+                    'src::manager::WorkerManager::sync_worker_state_with_process_state:: '
+                    f'Failed to fetch worker details {worker.process_name}',
+                    extra={
+                        'error': result,
+                        'worker_id': str(worker.id),
+                        'process_name': worker.process_name,
+                    }
                 )
-        self.db_session.add_all(workers)
-        self.db_session.commit()
+                continue
+            
+            try:
+                if result is not None:
+                    details = TaskIQWorkerDetails(
+                        pid=result['pid'],
+                        spawnerr=result['spawnerr'],
+                        timestamp=result['now'],
+                        group_name=result['group'],
+                        process_name=result['name'],
+                        stop_timestamp=result['stop'],
+                        start_timestamp=result['start'],
+                        status=result['state'],
+                    )
+
+                    worker.pid = details.pid
+                    worker.status = TaskIQWorkerState.get_worker_status(process_state=details.status)
+                    workers_to_update.append(worker)
+            except KeyError:
+                logger.error(
+                    'src::manager::WorkerManager::sync_worker_state_with_process_state:: '
+                    f'Failed to update worker details {worker.process_name}',
+                )
+                continue
+
+        if commit:
+            self.db_session.add_all(workers_to_update)
+            self.db_session.commit()
 
     def get_worker_details(self, worker: Worker) -> TaskIQWorkerDetails | None:
         """Get details of all workers."""
@@ -231,7 +277,9 @@ class WorkerManager:
                 status=data['state'],
             )
         except Exception as error:
-            logger.error(
+            # Log at info level since it's expected that the worker process may not always exist,
+            # and temporary mismatches between process state and DB state are normal.
+            logger.info(
                 'src::manager::WorkerManager::get_worker_details:: '
                 f'Failed to get worker details :: {worker.process_name} :: {error}',
                 exc_info=error,
@@ -240,3 +288,44 @@ class WorkerManager:
                     'process_name': worker.process_name,
                 }
             )
+
+    def sync_worker_logs(self) -> None:
+        """Sync worker logs."""
+
+        workers = self.db_session.exec(
+            select(Worker).where(Worker.status == WorkerStatus.online)
+        ).all()
+
+        calls = [
+            {
+                'methodName': 'supervisor.tailProcessStdoutLog',
+                'params': [worker.process_name, 0, 1000] # pull last 1K bytes
+            }
+            for worker in workers
+        ]
+
+        with atomic_transaction_block(db_session=self.db_session):
+            results = self.supervisord_system_client.multicall(calls)
+            workers_to_update = []
+
+            for index, result in enumerate(results):
+                worker = workers[index]
+
+                if isinstance(result, dict):
+                    logger.debug(
+                        'src::manager::WorkerManager::sync_worker_logs:: '
+                        f'Failed to fetch logs for {worker.process_name}',
+                        extra={
+                            'error': result,
+                            'worker_id': str(worker.id),
+                            'process_name': worker.process_name,
+                        }
+                    )
+                    continue
+
+                log_data = result[0] or ''
+                worker.update_logs(value=log_data)
+                workers_to_update.append(worker)
+
+            self.db_session.add_all(workers_to_update)
+            self.db_session.commit()

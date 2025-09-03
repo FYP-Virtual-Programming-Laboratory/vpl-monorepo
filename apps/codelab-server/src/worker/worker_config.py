@@ -11,7 +11,7 @@ WORKER_CONFIG_TEMPLATE = (
 """
 
 [program:{worker_name}]
-command=exec taskiq worker -fsd src.worker:broker -w "{no_of_threads}" --tasks-pattern "./src/**/tasks.py"
+command=taskiq worker -fsd src.worker:broker -w "{no_of_threads}" --tasks-pattern "./src/**/tasks.py"
 process_name=%(program_name)s
 numprocs=1
 directory=/codelab

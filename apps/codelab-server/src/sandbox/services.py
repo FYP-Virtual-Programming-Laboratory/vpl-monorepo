@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Body, Depends, HTTPException, Path
+from fastapi import Body, Depends, Path
 from sqlmodel import Session, col, func, select, update
 
 from src.core.dependecies import (
@@ -23,7 +23,7 @@ from src.models import (
 from src.models import Session as WorkflowSession
 from src.sandbox.constants import IMAGE_BUILD_TASK_CONCURRENCY_KEY
 from src.sandbox.schemas import (
-    CreateExcerciseExecutionSchema,
+    CreateExerciseExecutionSchema,
     CreateLanguageImageSchema,
     CreateTaskExecutionSchema,
     UpdateLanguageSchema,
@@ -47,9 +47,10 @@ async def create_new_langauge_image_service(
         db_session=db_session,
         concurrency_key=IMAGE_BUILD_TASK_CONCURRENCY_KEY,
     ):
-        raise HTTPException(
-            status_code=400,
-            detail="Unbale to trigger language build as a build is in progress",
+        raise APIException(
+            message='Unable to trigger language build as a build is in progress.',
+            error_code=APIErrorCodes.LANGUAGE_IMAGE_BUILD_IN_PROGRESS,
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
 
     image = LanguageImage(
@@ -88,7 +89,11 @@ def get_language_image_by_id_service(
     ).first()
 
     if not language_image:
-        raise HTTPException(status_code=404, detail="Language image not found")
+        raise APIException(
+            message='Language image not found.',
+            error_code=APIErrorCodes.NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
 
     return language_image
 
@@ -166,7 +171,7 @@ def delete_language_image_service(
     return language_image
 
 
-def cancle_language_image_delation_service(
+def cancel_language_image_delation_service(
     db_session: Annotated[Session, Depends(require_db_session)],
     admin: Annotated[Admin, Depends(require_admin)],
     language_image: Annotated[LanguageImage, Depends(get_language_image_by_id_service)],
@@ -399,17 +404,17 @@ async def create_task_execution_service(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    # get excercise
-    excercise = db_session.exec(
+    # get exercise
+    exercise = db_session.exec(
         select(Exercise).where(
-            Exercise.id == task_data.excercise_id,
+            Exercise.id == task_data.exercise_id,
             Exercise.session_id == session.id,
         )
     ).first()
 
-    if not excercise:
+    if not exercise:
         raise APIException(
-            message="Excercise not found.",
+            message="Exercise not found.",
             error_code=APIErrorCodes.NOT_FOUND,
             status_code=status.HTTP_404_NOT_FOUND,
         )
@@ -459,7 +464,7 @@ async def create_task_execution_service(
     task = Task(
         status=TaskStatus.queued,
         student_id=student.id,
-        exercise_id=excercise.id,
+        exercise_id=exercise.id,
         entry_file_path=str(task_data.entry_file_path),
     )
     db_session.add(task)
@@ -475,7 +480,7 @@ async def create_task_execution_service(
     return task
 
 
-def cancle_queued_task_service(
+def cancel_queued_task_service(
     db_session: Annotated[Session, Depends(require_db_session)],
     task: Annotated[Task, Depends(get_queued_task_by_id_service)],
     user: Annotated[Student | Admin, Depends(require_admin_or_student)],
@@ -511,7 +516,7 @@ def cancle_queued_task_service(
 async def create_exercise_submission_service(
     db_session: Annotated[Session, Depends(require_db_session)],
     session: Annotated[WorkflowSession, Depends(get_session_by_id_service)],
-    submission_data: Annotated[CreateExcerciseExecutionSchema, Body()],
+    submission_data: Annotated[CreateExerciseExecutionSchema, Body()],
     student: Annotated[Student, Depends(require_student)],
 ) -> ExerciseSubmission:
     """Create a new exercise submission."""
@@ -552,17 +557,17 @@ async def create_exercise_submission_service(
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
-    # get excercise
-    excercise = db_session.exec(
+    # get exercise
+    exercise = db_session.exec(
         select(Exercise).where(
-            Exercise.id == submission_data.excercise_id,
+            Exercise.id == submission_data.exercise_id,
             Exercise.session_id == session.id,
         )
     ).first()
 
-    if not excercise:
+    if not exercise:
         raise APIException(
-            message="Excercise not found.",
+            message="Exercise not found.",
             error_code=APIErrorCodes.NOT_FOUND,
             status_code=status.HTTP_404_NOT_FOUND,
         )
@@ -591,7 +596,7 @@ async def create_exercise_submission_service(
     submission = ExerciseSubmission(
         student_id=student.id if student else None,
         group_id=group.id if group else None,
-        exercise_id=excercise.id,
+        exercise_id=exercise.id,
         status=TaskStatus.queued,
         entry_file_path=str(submission_data.entry_file_path),
     )
@@ -645,7 +650,7 @@ def get_exercise_submission_by_id_service(
     return submission
 
 
-def cancle_queued_exercise_submission_service(
+def cancel_queued_exercise_submission_service(
     db_session: Annotated[Session, Depends(require_db_session)],
     session: Annotated[WorkflowSession, Depends(get_session_by_id_service)],
     submission: Annotated[ExerciseSubmission, Depends(get_exercise_submission_by_id_service)],

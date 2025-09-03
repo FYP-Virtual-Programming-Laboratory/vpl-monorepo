@@ -29,11 +29,11 @@ def factorial(n: int) -> int:
 """
 
 
-def pull_excercise_repository(
-    excercise_id: str,
+def pull_exercise_repository(
+    exercise_id: str,
     session_id: str,
 ) -> CodeRepository:
-    """Pull the excercise repository from the code collaboration service."""
+    """Pull the exercise repository from the code collaboration service."""
 
     # NOTE: for now let's just return a dummy repository
     return CodeRepository(

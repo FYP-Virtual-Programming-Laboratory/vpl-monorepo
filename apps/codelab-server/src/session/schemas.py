@@ -119,7 +119,7 @@ class SessionCreationDetailSchema(BaseModel):
     collaboration_group_open: bool | None = None
     enrollment_method: SessionEnrollmentMethod | None = None
     enrollment_link_ttl: PositiveInt | None = None
-    exercises: list['ExcercisePublicSchema'] | None = None
+    exercises: list['ExercisePublicSchema'] | None = None
     configuration: SessionResourceConfigurationSchema | None = None
 
 
@@ -205,7 +205,7 @@ class ExerciseCreationSchema(BaseModel):
         return self
 
 
-class ExcercisePublicSchema(ExerciseCreationSchema):
+class ExercisePublicSchema(ExerciseCreationSchema):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
 
