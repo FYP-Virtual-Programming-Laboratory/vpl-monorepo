@@ -87,10 +87,12 @@ class Settings(BaseSettings):
     DEFAULT_WORKER_ID: str
     DEFAULT_WORKER_NAME: str
     DEFAULT_WORKER_GROUP_NAME: str
+    SERVER_PROCESS_NAME: str
     SUPERVISORD_CONFIG_PATH: str
     SUPERVISORD_USERNAME: str
     SUPERVISORD_PASSWORD: str
     SUPERVISORD_HTTP_PORT: str
+
 
     @computed_field  # type: ignore[prop-decorator]
     @property

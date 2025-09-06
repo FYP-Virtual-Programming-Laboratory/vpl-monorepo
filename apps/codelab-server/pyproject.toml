@@ -34,6 +34,7 @@ dependencies = [
     "taskiq-redis>=1.1.0",
     "taskiq-fastapi>=0.3.5",
     "supervisor>=4.2.5",
+    "psutil>=7.0.0",
 ]
 
 [tool.uv]

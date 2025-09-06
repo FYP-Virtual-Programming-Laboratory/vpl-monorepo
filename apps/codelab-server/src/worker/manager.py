@@ -220,20 +220,7 @@ class WorkerManager:
         workers_to_update = []
 
         for index, result in enumerate(results):              
-            worker = workers[index]
-
-            if isinstance(result, dict):
-                logger.debug(
-                    'src::manager::WorkerManager::sync_worker_state_with_process_state:: '
-                    f'Failed to fetch worker details {worker.process_name}',
-                    extra={
-                        'error': result,
-                        'worker_id': str(worker.id),
-                        'process_name': worker.process_name,
-                    }
-                )
-                continue
-            
+            worker = workers[index]            
             try:
                 if result is not None:
                     details = TaskIQWorkerDetails(
@@ -261,11 +248,17 @@ class WorkerManager:
             self.db_session.add_all(workers_to_update)
             self.db_session.commit()
 
-    def get_worker_details(self, worker: Worker) -> TaskIQWorkerDetails | None:
+    def get_worker_details(
+        self, worker: Worker | None = None, 
+        process_name: str | None = None 
+    ) -> TaskIQWorkerDetails | None:
         """Get details of all workers."""
-
+    
+        if worker is None and process_name is None:
+            raise AssertionError('Worker or process_name need to be supplied.')
+ 
         try:
-            data = self.supervisord_client.getProcessInfo(worker.process_name)
+            data = self.supervisord_client.getProcessInfo(worker.process_name if worker else process_name)
             return TaskIQWorkerDetails(
                 pid=data['pid'],
                 spawnerr=data['spawnerr'],
