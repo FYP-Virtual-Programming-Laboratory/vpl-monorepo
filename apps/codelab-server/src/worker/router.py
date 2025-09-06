@@ -1,10 +1,11 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from src.core.schemas import ErrorResponseSchema, APIErrorCodes
-from src.worker.schemas import UpdateWorkerSchema, WorkerDetailSchema
+from src.worker.schemas import SystemLogSchema, UpdateWorkerSchema, WorkerDetailSchema
 from src.worker.services import (
     add_worker_service,
     delete_worker_service,
+    get_system_logs_service,
     list_workers_service,
     update_worker_service,
     worker_details_service,
@@ -244,3 +245,12 @@ def update_worker_details(
 def delete_worker(_: Annotated[None, Depends(delete_worker_service)]) -> dict[str, str]:
     """Delete a specific worker."""
     return {'message': 'Worker deleted.'}
+
+
+@router.get("/system")
+def fetch_system_status_logs(
+    logs: Annotated[list[SystemLogSchema], Depends(get_system_logs_service)]
+) -> list[SystemLogSchema]:
+    """Fetch system status logs."""
+    return logs
+

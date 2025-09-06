@@ -3,17 +3,20 @@ from src.core.dependecies import (
     require_super_admin,
 )
 from typing import Annotated
+from datetime import datetime
 from fastapi import Depends, Query, Path, Body, status
 from src.core.exceptions import APIException
 from src.core.schemas import APIErrorCodes
-from src.models import Worker, Admin
+from src.models import Worker, Admin, SystemStatusLog
 from src.utils import atomic_transaction_block
 from src.schemas import WorkerStatus
-from sqlmodel import select, Session
+from sqlmodel import select, Session, desc
+from pydantic import PositiveInt
 from uuid import UUID
 from src.worker.manager import WorkerManager
 from src.worker.schemas import (
-    CreateWorkerSchema, 
+    CreateWorkerSchema,
+    SystemLogSchema, 
     UpdateWorkerSchema, 
     WorkerDetailSchema,
 )
@@ -166,3 +169,28 @@ async def delete_worker_service(
             error_code=APIErrorCodes.SERVICE_ERROR,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+async def get_system_logs_service(
+    db_session: Annotated[Session, Depends(require_db_session)],
+    # admin: Annotated[Admin, Depends(require_super_admin)],
+    start_date_filter: Annotated[datetime | None, Query(description="Filter start date.")] = None,
+    end_date_filter: Annotated[datetime | None, Query(description="Filter end-date.")] = None,
+    limit: Annotated[PositiveInt | None, Query(description="Limit no of records returned.")] = None,
+) -> list[SystemLogSchema]:
+    """Fetch system logs service."""
+
+    query = select(SystemStatusLog)
+
+    if start_date_filter:
+        query = query.where(SystemStatusLog.created_at >= start_date_filter)
+
+    if end_date_filter:
+        query = query.where(SystemStatusLog.created_at <= end_date_filter)
+
+    limit = limit or 50
+    query = query.limit(limit)
+
+    records = db_session.exec(query.order_by(desc(SystemStatusLog.created_at))).all()
+    return [SystemLogSchema.model_validate(log) for log in records]
+

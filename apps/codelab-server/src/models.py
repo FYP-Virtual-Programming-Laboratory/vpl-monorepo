@@ -117,6 +117,14 @@ class WorkerTask(BaseModel, table=True):
     competing_task: 'WorkerTask' = Relationship(sa_relationship_kwargs={"lazy": "select"})
 
 
+class SystemStatusLog(BaseModel, table=True):
+    """This model represents periodic system status."""
+    uptime: datetime | None = Field(default=None)
+    cpu_usage: float
+    memory_usage: float
+    disk_usage: float
+
+
 class LanguageImage(BaseModel, table=True):
     """This model represents a language image on the system."""
 

@@ -93,3 +93,14 @@ class CreateWorkerSchema(BaseModel):
 class UpdateWorkerSchema(BaseModel):
     no_of_threads: PositiveInt | None = None
     status: Literal['start', 'stop'] | None = None
+
+
+class SystemLogSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    uptime: datetime | None = None
+    cpu_usage: float
+    memory_usage: float
+    disk_usage: float
+    created_at: datetime

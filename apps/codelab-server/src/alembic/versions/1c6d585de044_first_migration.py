@@ -1,8 +1,8 @@
 """First migration
 
-Revision ID: f30b2ba052ee
+Revision ID: 1c6d585de044
 Revises: 
-Create Date: 2025-09-03 14:49:07.103153
+Create Date: 2025-09-06 11:35:38.678727
 
 """
 from alembic import op
@@ -11,7 +11,7 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = 'f30b2ba052ee'
+revision = '1c6d585de044'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -35,6 +35,16 @@ def upgrade():
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_admin_email'), 'admin', ['email'], unique=True)
+    op.create_table('systemstatuslog',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.Column('updated_at', sa.TIMESTAMP(), nullable=True),
+    sa.Column('uptime', sa.DateTime(), nullable=True),
+    sa.Column('cpu_usage', sa.Float(), nullable=False),
+    sa.Column('memory_usage', sa.Float(), nullable=False),
+    sa.Column('disk_usage', sa.Float(), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('worker',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
@@ -311,6 +321,7 @@ def downgrade():
     op.drop_table('languageimage')
     op.drop_index(op.f('ix_worker_name'), table_name='worker')
     op.drop_table('worker')
+    op.drop_table('systemstatuslog')
     op.drop_index(op.f('ix_admin_email'), table_name='admin')
     op.drop_table('admin')
     # ### end Alembic commands ###
